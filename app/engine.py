@@ -257,7 +257,7 @@ class PaperEngine:
             day_open = float(self._get("day_open_cash"))
             unrealized = sum(self._unrealized(p) for p in positions)
             equity = max(0.0, cash + unrealized)
-            # Portfolio-wide margin budget: all open positions share one 20% equity limit.
+            # Portfolio-wide margin budget: all open positions share the configured equity limit.
             portfolio_margin_limit = equity * self.config["max_notional_pct"] / 100
             portfolio_margin_available = max(0.0, portfolio_margin_limit - used_margin)
             day_pnl = float(self._get("day_realized_pnl")) + unrealized
