@@ -85,14 +85,14 @@ Use exact supported model IDs from provider accounts; APIs and availability chan
 | Maximum notional per position | $250 USD |
 | Portfolio-wide margin allocation | 60% of current equity across all open positions |
 | Aggregate notional ceiling | 180% of equity at 3x leverage (theoretical $1,800 on $1,000 equity; the $250 per-position cap and three-position limit constrain actual exposure to at most $750) |
-| UTC day loss gate for new entries | 2.5% of day opening cash, including open-position unrealized PnL |
+| UTC day loss gate | 2.5% of day opening cash, including open-position unrealized PnL; blocks new entries and automatically closes remaining PAPER positions at fresh marks |
 | Stop / take profit distance | 1% / 2% |
 | Assumed fee/slippage per side | 4 / 2 bps |
 | Symbol cooldown after exit | 600 seconds (in-memory) |
 | Maximum stale-feed age at entry | 20 seconds |
 | Minimum signal confidence | 65% |
 
-This is **not production-ready for real money**. Risk is not collateral accounting. Stop triggers use Binance mark prices with approximate paper fills. Funding uses the last published rate for one observed funding boundary; missed multiple boundaries cannot be reconstructed. Liquidation uses an illustrative 0.5% maintenance-margin assumption and is NOT Binance tier-accurate. Exchange maintenance-margin brackets, order-book liquidity, precision and actual brokerage costs are not fully modeled. The daily loss gate includes unrealized PnL across all open positions when deciding whether to allow new entries; it does not automatically liquidate existing paper positions, which remain subject to their individual stop/target checks. The KILL flag persists across restarts; if the feed is stale, paper positions may stay unresolved. There is no unauthenticated kill-reset endpoint.
+This is **not production-ready for real money**. Risk is not collateral accounting. Stop triggers use Binance mark prices with approximate paper fills. Funding uses the last published rate for one observed funding boundary; missed multiple boundaries cannot be reconstructed. Liquidation uses an illustrative 0.5% maintenance-margin assumption and is NOT Binance tier-accurate. Exchange maintenance-margin brackets, order-book liquidity, precision and actual brokerage costs are not fully modeled. The daily loss gate includes unrealized PnL across all open positions. When the 2.5% UTC daily loss threshold is reached, the PAPER-only auto-close protection closes remaining positions at the latest fresh mark prices with simulated fees and slippage, then blocks new entries. This is a simulation safeguard, not a guaranteed execution price. The KILL flag persists across restarts; if the feed is stale, paper positions may stay unresolved. There is no unauthenticated kill-reset endpoint.
 
 ## API and access
 
