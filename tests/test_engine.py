@@ -97,6 +97,13 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(status["funding_indicative"]["BTC"]["last_rate"], 0.0001)
         self.assertIn("approximation", status["futures_simulation"]["margin_model"])
 
+    def test_open_position_equity_includes_estimated_round_trip_fees(self):
+        order = self.engine.open("BTC", "LONG", 1, now=self.now + 1)
+        self.assertTrue(order["ok"])
+        status = self.engine.status(self.now + 1)
+        self.assertLess(status["equity"], status["cash"])
+        self.assertLess(status["unrealized_pnl"], 0)
+
     def test_short_position_uses_mark_price_for_stop(self):
         order = self.engine.open("SOL", "SHORT", 1, now=self.now + 1)
         self.assertTrue(order["ok"])
