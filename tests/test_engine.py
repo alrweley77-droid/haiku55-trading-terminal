@@ -117,6 +117,7 @@ class EngineTests(unittest.TestCase):
         )
         for symbol, side in (("BTC", "LONG"), ("ETH", "LONG")):
             self.assertTrue(self.engine.open(symbol, side, 1, now=self.now + 1)["ok"])
+        self.engine._set("day_open_cash", 1000.0)
         self.engine._set("day_realized_pnl", -22.0)
         self.engine.db.commit()
         # A 0.7% mark decline is below each 1% stop, but adds unrealized losses.
