@@ -113,7 +113,8 @@ def evaluate(symbol, signal, prices, history):
     conflict = any(v["side"] not in (selected, "WAIT") for v in votes)
     head_ok = votes[0]["side"] == selected and votes[0]["confidence"] >= .65
     accepted = approve >= 3 and not conflict and head_ok
-    confidence = sum(v["confidence"] for v in votes if v["side"] == selected) / max(1, approve)
+    confidence = sum(v["confidence"] for v in votes
+                     if v["side"] == selected and v["confidence"] >= .65) / max(1, approve)
     return {"side": selected if accepted else "WAIT", "confidence": round(confidence, 3),
             "source": "AI_COUNCIL", "votes": votes,
             "reason": "Council approved" if accepted else "Council abstained / disagreed"}
