@@ -25,7 +25,11 @@ function renderChart() {
   safe($("samples"), points.length+" / 90");
   const price=state?.prices?.[viewSymbol];
   safe($("mid"), price ? money(price,price>=100?2:4):"--");
-  safe($("chartTitle"),viewSymbol+" / PUBLIC MID PRICES");
+  const last=state?.last_prices?.[viewSymbol];
+  safe($("last"),last?money(last,last>=100?2:4):"--");
+  const rate=state?.funding_indicative?.[viewSymbol]?.last_rate;
+  safe($("funding"),Number.isFinite(+rate)?(Number(rate)*100).toFixed(4)+"%":"--");
+  safe($("chartTitle"),viewSymbol+" / BINANCE MARK PRICE");
   if(points.length<2) {
     ctx.font="13px ui-monospace, monospace";ctx.fillStyle="#aa93b7";
     ctx.fillText("Waiting for 2+ actual market observations...", 14,h/2);
@@ -54,7 +58,8 @@ function render(){
   safe($("today"),signed(s.daily_realized_pnl));colorize($("today"),s.daily_realized_pnl);
   safe($("wr"),num(s.win_rate,1)+"%");
   safe($("count"),s.trades_count+" closed paper trades");
-  safe($("exposure"),s.positions.length+"/"+risk.max_positions);
+  safe($("marginUsed"),money(s.futures_simulation?.margin_used));
+  safe($("marginAvailable"),money(s.futures_simulation?.margin_available));
   safe($("marketAge"),s.feed_age_seconds==null?"NO FEED":s.feed_age_seconds+"s age");
   $("feed").className="chip "+(s.feed_status==="LIVE"?"good":"bad");
   safe($("feed"),s.feed_status==="LIVE"?"● FEED LIVE":"● FEED STALE");
@@ -66,7 +71,7 @@ function render(){
     const el=document.createElement("div");el.className="pair"+(symbol===viewSymbol?" active":"");
     const one=document.createElement("div"),two=document.createElement("div");
     const b=document.createElement("b");b.textContent=symbol;one.append(b);
-    const name=document.createElement("div");name.className="n";name.textContent=symbol+"-PERP / INDICATIVE MID";one.append(name);
+    const name=document.createElement("div");name.className="n";name.textContent=symbol+"USDT / MARK PRICE";one.append(name);
     const p=document.createElement("div");p.className="price";p.textContent=s.prices?.[symbol]?money(s.prices[symbol],symbol==="BTC"?1:symbol==="ETH"?2:3):"--";
     const note=document.createElement("div");note.className="n";note.style.textAlign="right";
     note.textContent=s.positions.find(q=>q.symbol===symbol)?.side||"NO POSITION";two.append(p,note);
@@ -78,19 +83,21 @@ function render(){
   const pos=$("positions");pos.replaceChildren();
   for(const p of s.positions){
     const tr=document.createElement("tr");
-    const fields=[p.symbol+"-PERP",p.side,money(p.entry,2),
-      money(p.stop,2)+" / "+money(p.target,2),signed(p.upnl)];
+    const fields=[p.symbol+"USDT",p.side,money(p.entry,2)+" / "+money(p.mark,2),
+      money(p.stop,2)+" / "+money(p.target,2),money(p.estimated_liquidation_price,2),money(p.funding_paid,4),signed(p.upnl)];
     fields.forEach((f,i)=>{const td=document.createElement("td");td.textContent=f;
-      if(i===1||i===4)td.className=(i===1?(p.side==="LONG"):p.upnl>=0)?"green":"red";
+      if(i===1||i===6)td.className=(i===1?(p.side==="LONG"):p.upnl>=0)?"green":"red";
       tr.append(td);});pos.append(tr);
   }
   if(!s.positions.length){const tr=document.createElement("tr"),td=document.createElement("td");
-    td.colSpan=5;td.className="empty";td.textContent="No open paper positions";tr.append(td);pos.append(tr);}
+    td.colSpan=7;td.className="empty";td.textContent="No open paper positions";tr.append(td);pos.append(tr);}
   safe($("posCount"),s.positions.length+" OPEN");
   const riskEl=$("risk");riskEl.replaceChildren(
     row("Risk per trade",risk.risk_per_trade_pct+"%"),
     row("Max notional",risk.max_notional_pct+"% equity"),
-    row("Daily realized stop",risk.daily_loss_limit_pct+"%"),
+    row("Daily loss gate (incl. unrealized)",risk.daily_loss_limit_pct+"%"),
+    row("Leverage",risk.leverage+"x"),
+    row("Maintenance margin assumption",num((risk.maintenance_margin_rate||0)*100,2)+"% (illustrative)"),
     row("Stop / target",risk.stop_pct+"% / "+risk.take_profit_pct+"%"),
     row("Trade cooldown",risk.cooldown_seconds+"s"),
     row("Fee per side",risk.fee_bps+" bps"),
@@ -101,11 +108,15 @@ function render(){
     row("Strategy",svc.ai_enabled?"FOUR-MODEL AI":"RULES ONLY"),
     row("AI setup",svc.models_configured?"4/4 configured":"Missing keys/model IDs"),
     row("Autopilot",svc.auto_paper?"ENABLED":"DISABLED"),
-    row("Polling", "Every 5 seconds (default)"),
+    row("Polling", "Every "+(svc.poll_seconds||5)+" seconds"),
+    row("Market source","Binance USDⓈ-M Futures"),
+    row("Price basis","Mark price for PnL / stops"),
     row("Data",s.feed_status),
+    row("Last price reference",money(s.last_prices?.BTC)),
     row("Last market error",svc.last_poll_error||"None"),
     row("Controls",svc.controls_available?"Token configured":"Disabled"),
-    row("Protection",s.killed?"KILLED":s.paused?"PAUSED":"ACTIVE")
+    row("Protection",s.killed?"KILLED":s.paused?"PAUSED":"ACTIVE"),
+    row("Liquidation model","Approximate; not Binance tier-accurate")
   );
   const active=s.signal||{};
   safe($("aiMode"),!svc.ai_enabled?"RULES ONLY":svc.models_configured?"4 AI CONNECTED":"KEYS MISSING");
