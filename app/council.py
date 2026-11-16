@@ -90,7 +90,8 @@ def evaluate(symbol, signal, prices, history):
         f"Asset: {symbol}USDT USDⓈ-M perpetual futures. Public Binance futures ticker prices (not executable quotes): {json.dumps(prices)}. "
         f"Recent mark samples: {json.dumps(history[-36:])}. "
         f"Rule prefilter: {json.dumps(signal)}. "
-        "Do not assume spreads, funding, volumes, liquidity or real-time news are known."
+        "Do not assume spreads, funding, volumes, liquidity or real-time news are known. "
+        "This is a PAPER-only 3x leverage simulation; funding and liquidation are not modeled."
     )
     pool = concurrent.futures.ThreadPoolExecutor(max_workers=4)
     futures = {label: pool.submit(_call, label, prompt) for label, _, _ in PROVIDERS}
