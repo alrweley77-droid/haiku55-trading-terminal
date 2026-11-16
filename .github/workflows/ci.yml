@@ -47,5 +47,15 @@ jobs:
               headers={'Content-Type':'application/json','Authorization':'Bearer ci-test-only'})
           with urllib.request.urlopen(req) as r:
               assert json.load(r)['ok']
-          print('HTTP smoke passed (no real exchange orders)')
+          # All write endpoints must reject requests without the bearer token.
+          unauth = urllib.request.Request(base + '/api/order', data=b'{"symbol":"BTC","side":"LONG"}',
+              method='POST', headers={'Content-Type':'application/json'})
+          try:
+              urllib.request.urlopen(unauth)
+              raise AssertionError('Unauthenticated order unexpectedly accepted')
+          except urllib.error.HTTPError as exc:
+              assert exc.code == 401
+          with urllib.request.urlopen(base + '/api/trades') as r:
+              assert isinstance(json.load(r)['trades'], list)
+          print('HTTP smoke passed (PAPER only; unauthenticated write rejected)')
           PY
