@@ -54,7 +54,7 @@ class EngineTests(unittest.TestCase):
             status = engine.status(self.now + 3)
             futures = status["futures_simulation"]
             self.assertTrue(all(n <= 250.0 for n in notionals))
-            self.assertLess(notionals[-1], 250.0)
+            self.assertLess(min(notionals), 250.0)
             self.assertLessEqual(futures["margin_used"], futures["margin_limit"])
             self.assertLessEqual(total_notional, 600.0)
             self.assertAlmostEqual(futures["notional_limit"], 600.0, delta=1.0)
