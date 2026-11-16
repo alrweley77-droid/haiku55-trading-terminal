@@ -34,7 +34,8 @@ Requirements: Python 3.12+. No Python package installation needed.
 
     git clone https://github.com/apha404ai/haiku55-trading-terminal.git
     cd haiku55-trading-terminal
-    export STARTING_BALANCE=1000\n    export AUTO_PAPER=0
+    export STARTING_BALANCE=1000
+    export AUTO_PAPER=0
     export AI_MODE=0
     export CONTROL_TOKEN="$(python -c 'import secrets;print(secrets.token_urlsafe(32))')"
     python -m app.server
@@ -49,14 +50,14 @@ Test locally:
 Docker example:
 
     docker build -t haiku55 .
-    docker run --rm -p 8080:8080 -v "$PWD/data:/data" -e DB_PATH=/data/haiku55-paper-1000.db -e CONTROL_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET -e AUTO_PAPER=1 -e AI_MODE=0 haiku55
+    docker run --rm -p 8080:8080 -v "$PWD/data:/data" -e DB_PATH=/data/haiku55-paper-1000.db -e CONTROL_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET -e STARTING_BALANCE=1000 -e AUTO_PAPER=0 -e AI_MODE=0 haiku55
 
 ## Deploy 24/7 on Railway
 
 **The GitHub code is published, but it is not automatically hosted.** Continuous running requires a web host. The included Dockerfile and railway.json support Railway deployment.
 
 1. Open Railway and create a project from the GitHub repository **apha404ai/haiku55-trading-terminal**.
-2. Set service Variables: CONTROL_TOKEN to a long random secret, AUTO_PAPER=0, AI_MODE=0, DB_PATH=/data/haiku55.db.
+2. Set service Variables: CONTROL_TOKEN to a long random secret, AUTO_PAPER=0, AI_MODE=0, STARTING_BALANCE=1000, DB_PATH=/data/haiku55-paper-1000.db.
 3. Add a persistent volume mounted at **/data**, otherwise SQLite data may disappear after a redeploy.
 4. Keep the service at **one replica**. The included railway.json sets an ALWAYS restart policy and a /health startup check.
 5. Generate a public Railway domain and open its root URL on your phone. Monitor /api/status for feed freshness.
