@@ -137,6 +137,33 @@ class EngineTests(unittest.TestCase):
         # Daily loss gate blocks new entries; it does not auto-close existing positions.
         self.assertEqual(len(self.engine.status(self.now + 3)["positions"]), 2)
 
+    def test_daily_loss_protection_closes_all_remaining_paper_positions(self):
+        self.engine.update_prices(
+            {"BTC": 100.0, "ETH": 200.0, "SOL": 50.0},
+            self.now,
+        )
+        self.assertTrue(self.engine.open("BTC", "LONG", 1, now=self.now + 1)["ok"])
+        self.assertTrue(self.engine.open("ETH", "LONG", 1, now=self.now + 1)["ok"])
+        # Use a $1,000 day-opening balance for a deterministic 2.5% loss threshold.
+        self.engine._set("day_open_cash", 1000.0)
+        self.engine._set("day_realized_pnl", -22.0)
+        self.engine.db.commit()
+        self.engine.update_prices(
+            {"BTC": 99.3, "ETH": 198.6},
+            self.now + 2,
+        )
+        status = self.engine.status(self.now + 2)
+        self.assertEqual(status["positions"], [])
+        closed = self.engine.trades()
+        self.assertEqual(len(closed), 2)
+        self.assertEqual({trade["reason"] for trade in closed}, {"DAILY_LOSS_KILL"})
+        risk_events = [event for event in status["events"] if event["type"] == "RISK"]
+        self.assertTrue(any("Daily loss protection triggered" in event["message"] for event in risk_events))
+        self.assertEqual(
+            self.engine.open("SOL", "LONG", 1, now=self.now + 3)["reason"],
+            "DAILY_LOSS_LIMIT",
+        )
+
     def test_daily_loss_gate(self):
         self.engine._set("day_realized_pnl", -400)
         self.engine.db.commit()
