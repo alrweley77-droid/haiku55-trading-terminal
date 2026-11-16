@@ -54,6 +54,7 @@ class PaperEngine:
             "max_positions": 3,
             "risk_per_trade_pct": 0.5,
             "max_notional_pct": 20.0,
+            "leverage": 3.0,
             "daily_loss_limit_pct": 2.5,
             "stop_pct": 1.0,
             "take_profit_pct": 2.0,
@@ -187,6 +188,8 @@ class PaperEngine:
             if any(p["symbol"] == symbol for p in positions):
                 return {"ok": False, "reason": "ALREADY_OPEN"}
             cash = float(self._get("cash"))
+            used_margin = sum((p["qty"] * p["entry"]) / self.config["leverage"] for p in positions)
+            free_margin = max(0.0, cash - used_margin)
             day_open = float(self._get("day_open_cash"))
             unrealized = sum(self._unrealized(p) for p in positions)
             day_pnl = float(self._get("day_realized_pnl")) + unrealized
@@ -197,7 +200,9 @@ class PaperEngine:
             entry = price * (1 + direction * self.config["slippage_bps"] / 10000)
             stop_dist = entry * self.config["stop_pct"] / 100
             risk_budget = cash * self.config["risk_per_trade_pct"] / 100
-            qty = min(risk_budget / stop_dist, cash * self.config["max_notional_pct"] / 100 / entry)
+            # max_notional_pct is the maximum margin allocation; leverage scales notional.
+            max_notional = free_margin * self.config["max_notional_pct"] / 100 * self.config["leverage"]
+            qty = min(risk_budget / stop_dist, max_notional / entry)
             qty = round(qty, 8)
             if qty <= 0:
                 return {"ok": False, "reason": "SIZE_ZERO"}
@@ -254,6 +259,12 @@ class PaperEngine:
                 "history": {s: list(self.price_history[s])[-90:] for s in SYMBOLS},
                 "cash": round(cash, 4), "equity": round(cash + upnl, 4),
                 "unrealized_pnl": round(upnl, 4),
+                "futures_simulation": {
+                    "leverage": self.config["leverage"],
+                    "margin_used": round(sum((p["qty"] * p["entry"]) / self.config["leverage"] for p in positions), 4),
+                    "margin_available": round(max(0.0, cash - sum((p["qty"] * p["entry"]) / self.config["leverage"] for p in positions)), 4),
+                    "margin_model": "isolated approximation; funding and liquidation not modeled"
+                },
                 "net_pnl": round(cash + upnl - float(self._get("starting_balance")), 4),
                 "daily_realized_pnl": round(float(self._get("day_realized_pnl")), 4),
                 "positions": positions, "trades_count": closed["n"],
