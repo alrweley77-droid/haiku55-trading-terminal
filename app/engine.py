@@ -31,7 +31,11 @@ class PaperEngine:
                 id INTEGER PRIMARY KEY AUTOINCREMENT, symbol TEXT UNIQUE NOT NULL,
                 side TEXT NOT NULL, qty REAL NOT NULL, entry REAL NOT NULL,
                 stop REAL NOT NULL, target REAL NOT NULL, fee_in REAL NOT NULL,
-                opened_at REAL NOT NULL, source TEXT NOT NULL, confidence REAL NOT NULL
+                opened_at REAL NOT NULL, source TEXT NOT NULL, confidence REAL NOT NULL,
+                funding_paid REAL NOT NULL DEFAULT 0,
+                funding_rate REAL NOT NULL DEFAULT 0,
+                next_funding_time_ms INTEGER NOT NULL DEFAULT 0,
+                last_funding_time_ms INTEGER NOT NULL DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS trades (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, symbol TEXT NOT NULL,
@@ -45,6 +49,15 @@ class PaperEngine:
                 type TEXT NOT NULL, message TEXT NOT NULL
             );
         """)
+        columns = {row["name"] for row in self.db.execute("PRAGMA table_info(positions)")}
+        for name, definition in (
+            ("funding_paid", "REAL NOT NULL DEFAULT 0"),
+            ("funding_rate", "REAL NOT NULL DEFAULT 0"),
+            ("next_funding_time_ms", "INTEGER NOT NULL DEFAULT 0"),
+            ("last_funding_time_ms", "INTEGER NOT NULL DEFAULT 0"),
+        ):
+            if name not in columns:
+                self.db.execute(f"ALTER TABLE positions ADD COLUMN {name} {definition}")
         self.prices: dict[str, float] = {}  # Binance mark prices used for PAPER risk checks
         self.last_prices: dict[str, float] = {}
         self.funding: dict[str, dict] = {}
@@ -57,6 +70,8 @@ class PaperEngine:
             "risk_per_trade_pct": 0.5,
             "max_notional_pct": 20.0,
             "leverage": 3.0,
+            # Illustrative safety assumption only; NOT Binance's symbol/tier-specific MMR.
+            "maintenance_margin_rate": 0.005,
             "daily_loss_limit_pct": 2.5,
             "stop_pct": 1.0,
             "take_profit_pct": 2.0,
@@ -115,6 +130,29 @@ class PaperEngine:
                 return
             self._roll_day(now)
             self.prices.update(valid)
+            now_ms = int(now * 1000)
+            for position in self._positions():
+                symbol = position["symbol"]
+                incoming = (funding or {}).get(symbol, {})
+                due_at = int(position.get("next_funding_time_ms") or 0)
+                paid_at = int(position.get("last_funding_time_ms") or 0)
+                mark = valid.get(symbol, self.prices.get(symbol, position["entry"]))
+                # Accrue one observed funding boundary using the last published rate.
+                # Multiple missed intervals cannot be reconstructed from this public feed.
+                if due_at and now_ms >= due_at and paid_at < due_at:
+                    direction = 1 if position["side"] == "LONG" else -1
+                    payment = position["qty"] * mark * float(position.get("funding_rate") or 0) * direction
+                    self.db.execute(
+                        "UPDATE positions SET funding_paid=funding_paid+?, last_funding_time_ms=? WHERE id=?",
+                        (payment, due_at, position["id"]),
+                    )
+                    self._event("FUNDING", f"{symbol} simulated funding {payment:+.4f} USD at boundary {due_at}", now)
+                new_due = int(incoming.get("next_funding_time_ms") or 0)
+                if new_due > due_at:
+                    self.db.execute(
+                        "UPDATE positions SET funding_rate=?, next_funding_time_ms=? WHERE id=?",
+                        (float(incoming.get("last_rate") or 0), new_due, position["id"]),
+                    )
             if last_prices:
                 self.last_prices.update({s: float(p) for s, p in last_prices.items() if s in SYMBOLS and float(p) > 0})
             if funding:
@@ -128,7 +166,11 @@ class PaperEngine:
                 price = valid.get(position["symbol"])
                 if price is None:
                     continue
-                if position["side"] == "LONG":
+                liq_price = self.liquidation_price(position)
+                liquidated = price <= liq_price if position["side"] == "LONG" else price >= liq_price
+                if liquidated:
+                    reason = "LIQUIDATION_APPROX"
+                elif position["side"] == "LONG":
                     reason = "STOP" if price <= position["stop"] else "TARGET" if price >= position["target"] else None
                 else:
                     reason = "STOP" if price >= position["stop"] else "TARGET" if price <= position["target"] else None
@@ -139,7 +181,17 @@ class PaperEngine:
     def _unrealized(self, position):
         px = self.prices.get(position["symbol"], position["entry"])
         direction = 1 if position["side"] == "LONG" else -1
-        return (px - position["entry"]) * position["qty"] * direction
+        gross = (px - position["entry"]) * position["qty"] * direction
+        return gross - float(position.get("funding_paid") or 0)
+
+    def liquidation_price(self, position):
+        """Illustrative isolated liquidation threshold; not an exchange-accurate quote."""
+        leverage = float(self.config["leverage"])
+        mmr = float(self.config["maintenance_margin_rate"])
+        distance = max(0.0, (1.0 / leverage) - mmr)
+        if position["side"] == "LONG":
+            return position["entry"] * (1.0 - distance)
+        return position["entry"] * (1.0 + distance)
 
     def _close(self, position, observed_price, reason, now):
         direction = 1 if position["side"] == "LONG" else -1
@@ -147,7 +199,8 @@ class PaperEngine:
         fee_out = abs(position["qty"] * exit_px) * self.config["fee_bps"] / 10000
         total_fee = position["fee_in"] + fee_out
         gross = (exit_px - position["entry"]) * direction * position["qty"]
-        pnl = gross - total_fee
+        funding_paid = float(position.get("funding_paid") or 0)
+        pnl = gross - total_fee - funding_paid
         cash = float(self._get("cash")) + pnl
         self._set("cash", cash)
         self._set("day_realized_pnl", float(self._get("day_realized_pnl")) + pnl)
@@ -217,10 +270,16 @@ class PaperEngine:
             stop = entry - direction * stop_dist
             target = entry + direction * entry * self.config["take_profit_pct"] / 100
             fee_in = entry * qty * self.config["fee_bps"] / 10000
+            funding_info = self.funding.get(symbol, {})
+            funding_rate = float(funding_info.get("last_rate") or 0)
+            next_funding_time = int(funding_info.get("next_funding_time_ms") or 0)
             self.db.execute(
-                """INSERT INTO positions(symbol,side,qty,entry,stop,target,fee_in,opened_at,source,confidence)
-                   VALUES(?,?,?,?,?,?,?,?,?,?)""",
-                (symbol, side, qty, entry, stop, target, fee_in, now, source, confidence),
+                """INSERT INTO positions(
+                    symbol,side,qty,entry,stop,target,fee_in,opened_at,source,confidence,
+                    funding_paid,funding_rate,next_funding_time_ms,last_funding_time_ms
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (symbol, side, qty, entry, stop, target, fee_in, now, source, confidence,
+                 0.0, funding_rate, next_funding_time, 0),
             )
             self._event("OPEN", f"{side} {symbol} {qty:.6f} @ {entry:.2f} (paper; {source})", now)
             self.db.commit()
@@ -255,6 +314,8 @@ class PaperEngine:
             for pos in self._positions():
                 pos["mark"] = self.prices.get(pos["symbol"])
                 pos["upnl"] = round(self._unrealized(pos), 4)
+                pos["funding_paid"] = round(float(pos.get("funding_paid") or 0), 6)
+                pos["estimated_liquidation_price"] = round(self.liquidation_price(pos), 8)
                 positions.append(pos)
             cash = float(self._get("cash"))
             upnl = sum(p["upnl"] for p in positions)
@@ -270,11 +331,12 @@ class PaperEngine:
                 "history": {s: list(self.price_history[s])[-90:] for s in SYMBOLS},
                 "cash": round(cash, 4), "equity": round(cash + upnl, 4),
                 "unrealized_pnl": round(upnl, 4),
+                "funding_paid_total": round(sum(float(p.get("funding_paid") or 0) for p in positions), 4),
                 "futures_simulation": {
                     "leverage": self.config["leverage"],
                     "margin_used": round(sum((p["qty"] * p["entry"]) / self.config["leverage"] for p in positions), 4),
                     "margin_available": round(max(0.0, cash - sum((p["qty"] * p["entry"]) / self.config["leverage"] for p in positions)), 4),
-                    "margin_model": "isolated margin arithmetic only; funding is displayed but not charged; liquidation is not modeled"
+                    "margin_model": "isolated approximation; observed funding events accrued; illustrative liquidation threshold, not Binance tier-accurate"
                 },
                 "net_pnl": round(cash + upnl - float(self._get("starting_balance")), 4),
                 "daily_realized_pnl": round(float(self._get("day_realized_pnl")), 4),
