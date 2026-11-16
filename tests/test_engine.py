@@ -130,7 +130,7 @@ class EngineTests(unittest.TestCase):
             status["daily_realized_pnl"] + status["unrealized_pnl"],
             -25.0,
         )
-        blocked = self.engine.open("BTC", "LONG", 1, now=self.now + 3)
+        blocked = self.engine.open("SOL", "LONG", 1, now=self.now + 3)
         self.assertFalse(blocked["ok"])
         self.assertEqual(blocked["reason"], "DAILY_LOSS_LIMIT")
         # Daily loss gate blocks new entries; it does not auto-close existing positions.
