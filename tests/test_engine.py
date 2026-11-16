@@ -23,8 +23,15 @@ class EngineTests(unittest.TestCase):
         self.assertTrue(order["ok"])
         self.assertGreater(order["target"], order["entry"])
         self.assertLess(order["stop"], order["entry"])
-        self.assertLessEqual(order["qty"] * order["entry"], 2010)
+        self.assertLessEqual(order["qty"] * order["entry"], 250.0)
         self.assertEqual(self.engine.status(self.now + 1)["mode"], "PAPER")
+
+    def test_each_paper_trade_notional_is_capped_at_250_usd(self):
+        # The cap applies to position notional, not leveraged margin.
+        order = self.engine.open("BTC", "LONG", 1, now=self.now + 1)
+        self.assertTrue(order["ok"])
+        self.assertLessEqual(order["qty"] * order["entry"], 250.0)
+        self.assertEqual(self.engine.config["max_trade_notional_usd"], 250.0)
 
     def test_target_closes_and_fees_recorded(self):
         order = self.engine.open("BTC", "LONG", 1, now=self.now + 1)
