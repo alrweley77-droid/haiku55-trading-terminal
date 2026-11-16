@@ -110,6 +110,32 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(len(status["positions"]), 1)
         self.assertEqual(status["feed_status"], "STALE")
 
+    def test_daily_loss_gate_includes_unrealized_loss_across_open_positions(self):
+        self.engine.update_prices(
+            {"BTC": 100.0, "ETH": 200.0, "SOL": 50.0},
+            self.now,
+        )
+        for symbol, side in (("BTC", "LONG"), ("ETH", "LONG"), ("SOL", "LONG")):
+            self.assertTrue(self.engine.open(symbol, side, 1, now=self.now + 1)["ok"])
+        self.engine._set("day_realized_pnl", -20.0)
+        self.engine.db.commit()
+        # A 0.7% mark decline is below each 1% stop, but adds unrealized losses.
+        self.engine.update_prices(
+            {"BTC": 99.3, "ETH": 198.6, "SOL": 49.65},
+            self.now + 2,
+        )
+        status = self.engine.status(self.now + 2)
+        self.assertEqual(len(status["positions"]), 3)
+        self.assertLess(
+            status["daily_realized_pnl"] + status["unrealized_pnl"],
+            -25.0,
+        )
+        blocked = self.engine.open("BTC", "LONG", 1, now=self.now + 3)
+        self.assertFalse(blocked["ok"])
+        self.assertEqual(blocked["reason"], "DAILY_LOSS_LIMIT")
+        # Daily loss gate blocks new entries; it does not auto-close existing positions.
+        self.assertEqual(len(self.engine.status(self.now + 3)["positions"]), 3)
+
     def test_daily_loss_gate(self):
         self.engine._set("day_realized_pnl", -400)
         self.engine.db.commit()
