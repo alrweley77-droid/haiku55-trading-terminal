@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import sqlite3
 import threading
@@ -269,8 +270,9 @@ class PaperEngine:
                 free_margin * self.config["max_notional_pct"] / 100 * self.config["leverage"],
                 self.config["max_trade_notional_usd"],
             )
-            qty = min(risk_budget / stop_dist, max_notional / entry)
-            qty = round(qty, 8)
+            raw_qty = min(risk_budget / stop_dist, max_notional / entry)
+            # Round down so floating-point/quantity precision can never exceed the notional cap.
+            qty = math.floor(raw_qty * 100_000_000) / 100_000_000
             if qty <= 0:
                 return {"ok": False, "reason": "SIZE_ZERO"}
             stop = entry - direction * stop_dist
