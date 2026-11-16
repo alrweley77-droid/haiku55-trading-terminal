@@ -69,6 +69,7 @@ class PaperEngine:
             "max_positions": 3,
             "risk_per_trade_pct": 0.5,
             "max_notional_pct": 20.0,
+            "max_trade_notional_usd": 250.0,
             "leverage": 3.0,
             # Illustrative safety assumption only; NOT Binance's symbol/tier-specific MMR.
             "maintenance_margin_rate": 0.005,
@@ -264,7 +265,10 @@ class PaperEngine:
             stop_dist = entry * self.config["stop_pct"] / 100
             risk_budget = cash * self.config["risk_per_trade_pct"] / 100
             # max_notional_pct is the maximum margin allocation; leverage scales notional.
-            max_notional = free_margin * self.config["max_notional_pct"] / 100 * self.config["leverage"]
+            max_notional = min(
+                free_margin * self.config["max_notional_pct"] / 100 * self.config["leverage"],
+                self.config["max_trade_notional_usd"],
+            )
             qty = min(risk_budget / stop_dist, max_notional / entry)
             qty = round(qty, 8)
             if qty <= 0:
