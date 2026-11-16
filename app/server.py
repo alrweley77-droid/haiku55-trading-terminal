@@ -22,7 +22,7 @@ AUTO_PAPER = os.getenv("AUTO_PAPER", "1").lower() in ("1", "true", "yes")
 AI_MODE = os.getenv("AI_MODE", "0").lower() in ("1", "true", "yes")
 POLL_SECONDS = max(2.0, float(os.getenv("POLL_SECONDS", "5")))
 SCAN_SECONDS = max(30.0, float(os.getenv("SCAN_SECONDS", "60")))
-SOURCE_URL = "https://api.binance.com/api/v3/ticker/price"
+SOURCE_URL = "https://fapi.binance.com/fapi/v1/ticker/price"
 BINANCE_SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT", "SOL": "SOLUSDT"}
 RUNNING = True
 WORKER = {"last_poll_error": None, "last_poll_at": None, "auto_paper": AUTO_PAPER,
@@ -30,7 +30,7 @@ WORKER = {"last_poll_error": None, "last_poll_at": None, "auto_paper": AUTO_PAPE
 
 
 def market_fetch():
-    """Fetch public Binance spot ticker prices. No credentials and no order execution."""
+    """Fetch public Binance USDⓈ-M Futures ticker prices. PAPER only; no credentials or order execution."""
     prices = {}
     for asset, pair in BINANCE_SYMBOLS.items():
         req = urllib.request.Request(
@@ -167,7 +167,7 @@ def main():
     port = int(os.getenv("PORT", "8080"))
     threading.Thread(target=poll_worker, name="market-poll", daemon=True).start()
     threading.Thread(target=strategy_worker, name="paper-strategy", daemon=True).start()
-    print(f"HAIKU55 BINANCE-DATA PAPER server on 0.0.0.0:{port}, auto={AUTO_PAPER}, ai={AI_MODE}, providers_configured={configured()}", flush=True)
+    print(f"HAIKU55 BINANCE FUTURES PAPER server on 0.0.0.0:{port}, auto={AUTO_PAPER}, ai={AI_MODE}, providers_configured={configured()}", flush=True)
     with ThreadingHTTPServer(("0.0.0.0", port), Handler) as server:
         server.serve_forever(poll_interval=0.5)
 
