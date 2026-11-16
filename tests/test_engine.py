@@ -33,6 +33,35 @@ class EngineTests(unittest.TestCase):
         self.assertLessEqual(order["qty"] * order["entry"], 250.0)
         self.assertEqual(self.engine.config["max_trade_notional_usd"], 250.0)
 
+    def test_open_positions_share_a_portfolio_margin_cap(self):
+        folder = tempfile.TemporaryDirectory()
+        path = str(Path(folder.name) / "portfolio.db")
+        engine = PaperEngine(path, starting_balance=1000)
+        try:
+            engine.update_prices(
+                {"BTC": 100.0, "ETH": 200.0, "SOL": 50.0},
+                self.now,
+            )
+            btc = engine.open("BTC", "LONG", 1, now=self.now + 1)
+            eth = engine.open("ETH", "LONG", 1, now=self.now + 2)
+            sol = engine.open("SOL", "LONG", 1, now=self.now + 3)
+            self.assertTrue(btc["ok"])
+            self.assertTrue(eth["ok"])
+            self.assertTrue(sol["ok"])
+            positions = engine._positions()
+            notionals = [p["qty"] * p["entry"] for p in positions]
+            total_notional = sum(notionals)
+            status = engine.status(self.now + 3)
+            futures = status["futures_simulation"]
+            self.assertTrue(all(n <= 250.0 for n in notionals))
+            self.assertLess(notionals[-1], 250.0)
+            self.assertLessEqual(futures["margin_used"], futures["margin_limit"])
+            self.assertLessEqual(total_notional, 600.0)
+            self.assertAlmostEqual(futures["notional_limit"], 600.0, delta=1.0)
+        finally:
+            engine.db.close()
+            folder.cleanup()
+
     def test_target_closes_and_fees_recorded(self):
         order = self.engine.open("BTC", "LONG", 1, now=self.now + 1)
         self.assertTrue(order["ok"])
