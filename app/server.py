@@ -22,29 +22,30 @@ AUTO_PAPER = os.getenv("AUTO_PAPER", "1").lower() in ("1", "true", "yes")
 AI_MODE = os.getenv("AI_MODE", "0").lower() in ("1", "true", "yes")
 POLL_SECONDS = max(2.0, float(os.getenv("POLL_SECONDS", "5")))
 SCAN_SECONDS = max(30.0, float(os.getenv("SCAN_SECONDS", "60")))
-SOURCE_URL = "https://api.hyperliquid.xyz/info"
+SOURCE_URL = "https://api.binance.com/api/v3/ticker/price"
+BINANCE_SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT", "SOL": "SOLUSDT"}
 RUNNING = True
 WORKER = {"last_poll_error": None, "last_poll_at": None, "auto_paper": AUTO_PAPER,
           "ai_enabled": AI_MODE, "models_configured": configured(), "last_scan_at": None}
 
 
 def market_fetch():
-    """Public Hyperliquid perp mids. Response is real data or raises an error."""
-    req = urllib.request.Request(SOURCE_URL, data=b'{"type":"allMids","dex":""}',
-                                 headers={"Content-Type": "application/json", "User-Agent": "HAIKU55-paper/1.0"},
-                                 method="POST")
-    with urllib.request.urlopen(req, timeout=8) as resp:
-        data = json.loads(resp.read(100000))
-    if not isinstance(data, dict):
-        raise ValueError("Unexpected market data payload")
+    """Fetch public Binance spot ticker prices. No credentials and no order execution."""
     prices = {}
-    for s in SYMBOLS:
-        if s not in data:
-            raise ValueError(f"Market response missing {s}")
-        value = float(data[s])
+    for asset, pair in BINANCE_SYMBOLS.items():
+        req = urllib.request.Request(
+            SOURCE_URL + "?symbol=" + pair,
+            headers={"User-Agent": "HAIKU55-paper/2.0"},
+            method="GET",
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read(20000))
+        if not isinstance(data, dict) or data.get("symbol") != pair:
+            raise ValueError(f"Unexpected Binance ticker response for {pair}")
+        value = float(data["price"])
         if not math.isfinite(value) or value <= 0:
-            raise ValueError(f"Invalid price for {s}")
-        prices[s] = value
+            raise ValueError(f"Invalid Binance price for {pair}")
+        prices[asset] = value
     return prices
 
 
@@ -166,7 +167,7 @@ def main():
     port = int(os.getenv("PORT", "8080"))
     threading.Thread(target=poll_worker, name="market-poll", daemon=True).start()
     threading.Thread(target=strategy_worker, name="paper-strategy", daemon=True).start()
-    print(f"HAIKU55 PAPER server on 0.0.0.0:{port}, auto={AUTO_PAPER}, ai={AI_MODE}, providers_configured={configured()}", flush=True)
+    print(f"HAIKU55 BINANCE-DATA PAPER server on 0.0.0.0:{port}, auto={AUTO_PAPER}, ai={AI_MODE}, providers_configured={configured()}", flush=True)
     with ThreadingHTTPServer(("0.0.0.0", port), Handler) as server:
         server.serve_forever(poll_interval=0.5)
 
