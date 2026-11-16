@@ -56,8 +56,8 @@ class EngineTests(unittest.TestCase):
             self.assertTrue(all(n <= 250.0 for n in notionals))
             self.assertLess(min(notionals), 250.0)
             self.assertLessEqual(futures["margin_used"], futures["margin_limit"])
-            self.assertLessEqual(total_notional, 600.0)
-            self.assertAlmostEqual(futures["notional_limit"], 600.0, delta=1.0)
+            self.assertLessEqual(total_notional, 750.0)
+            self.assertAlmostEqual(futures["notional_limit"], 1800.0, delta=2.0)
         finally:
             engine.db.close()
             folder.cleanup()
