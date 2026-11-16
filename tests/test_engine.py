@@ -126,16 +126,16 @@ class EngineTests(unittest.TestCase):
             self.now + 2,
         )
         status = self.engine.status(self.now + 2)
-        self.assertEqual(len(status["positions"]), 2)
-        self.assertLess(
-            status["daily_realized_pnl"] + status["unrealized_pnl"],
-            -25.0,
+        self.assertEqual(status["positions"], [])
+        self.assertEqual(len(self.engine.trades()), 2)
+        self.assertEqual(
+            {trade["reason"] for trade in self.engine.trades()},
+            {"DAILY_LOSS_KILL"},
         )
         blocked = self.engine.open("SOL", "LONG", 1, now=self.now + 3)
         self.assertFalse(blocked["ok"])
         self.assertEqual(blocked["reason"], "DAILY_LOSS_LIMIT")
-        # Daily loss gate blocks new entries; it does not auto-close existing positions.
-        self.assertEqual(len(self.engine.status(self.now + 3)["positions"]), 2)
+        self.assertEqual(len(self.engine.status(self.now + 3)["positions"]), 0)
 
     def test_daily_loss_protection_closes_all_remaining_paper_positions(self):
         self.engine.update_prices(
