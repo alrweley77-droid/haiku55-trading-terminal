@@ -247,7 +247,7 @@ class PaperEngine:
             upnl = sum(p["upnl"] for p in positions)
             closed = self.db.execute("SELECT count(*) AS n, sum(CASE WHEN pnl>0 THEN 1 ELSE 0 END) AS wins FROM trades").fetchone()
             return {
-                "mode": "PAPER", "market_source": "Binance public ticker price (PAPER only)",
+                "mode": "PAPER", "market_source": "Binance USDⓈ-M Futures public ticker (PAPER only)",
                 "feed_status": "LIVE" if self.last_market_at and now - self.last_market_at <= self.config["max_feed_age_seconds"] else "STALE",
                 "feed_age_seconds": round(now - self.last_market_at, 1) if self.last_market_at else None,
                 "prices": {s: self.prices.get(s) for s in SYMBOLS},
