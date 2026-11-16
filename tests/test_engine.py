@@ -1,3 +1,4 @@
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -196,5 +197,36 @@ class EngineTests(unittest.TestCase):
         self.assertAlmostEqual(trade["pnl"], result["pnl"], places=4)
         # A negative funding_paid is a credit to the short, so it increases realized PnL.
         self.assertGreater(trade["pnl"], (trade["exit"] - trade["entry"]) * -1 * trade["qty"] - trade["fee"])
+
+    def test_manual_close_blocked_when_market_data_is_stale(self):
+        order = self.engine.open("BTC", "LONG", 1, now=self.now + 1)
+        self.assertTrue(order["ok"])
+        result = self.engine.close("BTC", now=self.now + 90)
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["reason"], "STALE_MARKET_DATA")
+        self.assertEqual(len(self.engine.status(self.now + 90)["positions"]), 1)
+
+    def test_legacy_positions_table_receives_funding_columns(self):
+        legacy_dir = tempfile.TemporaryDirectory()
+        legacy_path = str(Path(legacy_dir.name) / "legacy.db")
+        db = sqlite3.connect(legacy_path)
+        db.execute("""
+            CREATE TABLE positions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, symbol TEXT UNIQUE NOT NULL,
+                side TEXT NOT NULL, qty REAL NOT NULL, entry REAL NOT NULL,
+                stop REAL NOT NULL, target REAL NOT NULL, fee_in REAL NOT NULL,
+                opened_at REAL NOT NULL, source TEXT NOT NULL, confidence REAL NOT NULL
+            )
+        """)
+        db.commit()
+        db.close()
+        migrated = PaperEngine(legacy_path, starting_balance=1000)
+        columns = {row["name"] for row in migrated.db.execute("PRAGMA table_info(positions)")}
+        self.assertTrue({
+            "funding_paid", "funding_rate", "next_funding_time_ms", "last_funding_time_ms"
+        }.issubset(columns))
+        migrated.db.close()
+        legacy_dir.cleanup()
+
 if __name__ == "__main__":
     unittest.main()
