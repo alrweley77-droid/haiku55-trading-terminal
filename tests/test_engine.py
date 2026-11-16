@@ -107,5 +107,45 @@ class EngineTests(unittest.TestCase):
         )
         self.assertEqual(self.engine.trades()[0]["reason"], "STOP")
 
+
+    def test_long_funding_payment_is_accrued_once_at_boundary(self):
+        due = int((self.now + 5) * 1000)
+        self.engine.update_prices(
+            {"BTC": 100.0}, self.now + 1,
+            funding={"BTC": {"last_rate": 0.001, "next_funding_time_ms": due}},
+        )
+        order = self.engine.open("BTC", "LONG", 1, now=self.now + 2)
+        self.assertTrue(order["ok"])
+        pos = self.engine._positions()[0]
+        expected = pos["qty"] * 100.0 * 0.001
+        self.engine.update_prices(
+            {"BTC": 100.0}, self.now + 6,
+            funding={"BTC": {"last_rate": 0.0005, "next_funding_time_ms": due + 8 * 60 * 60 * 1000}},
+        )
+        pos_after = self.engine._positions()[0]
+        self.assertAlmostEqual(pos_after["funding_paid"], expected, places=7)
+        # Repeated polls at the same funding boundary must not double-charge.
+        self.engine.update_prices({"BTC": 100.0}, self.now + 7)
+        self.assertAlmostEqual(self.engine._positions()[0]["funding_paid"], expected, places=7)
+
+    def test_short_receives_positive_funding_rate(self):
+        due = int((self.now + 5) * 1000)
+        self.engine.update_prices(
+            {"ETH": 200.0}, self.now + 1,
+            funding={"ETH": {"last_rate": 0.001, "next_funding_time_ms": due}},
+        )
+        order = self.engine.open("ETH", "SHORT", 1, now=self.now + 2)
+        self.assertTrue(order["ok"])
+        self.engine.update_prices({"ETH": 200.0}, self.now + 6)
+        self.assertLess(self.engine._positions()[0]["funding_paid"], 0)
+
+    def test_approximate_liquidation_closes_before_stop_or_target(self):
+        order = self.engine.open("SOL", "LONG", 1, now=self.now + 1)
+        self.assertTrue(order["ok"])
+        pos = self.engine._positions()[0]
+        liq = self.engine.liquidation_price(pos)
+        self.assertLess(liq, pos["stop"])
+        self.engine.update_prices({"SOL": liq * 0.999}, self.now + 2)
+        self.assertEqual(self.engine.trades()[0]["reason"], "LIQUIDATION_APPROX")
 if __name__ == "__main__":
     unittest.main()
