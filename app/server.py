@@ -26,7 +26,7 @@ MARK_PRICE_URL = "https://fapi.binance.com/fapi/v1/premiumIndex"
 TICKER_URL = "https://fapi.binance.com/fapi/v1/ticker/price"
 BINANCE_SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT", "SOL": "SOLUSDT"}
 RUNNING = True
-WORKER = {"last_poll_error": None, "last_poll_at": None, "auto_paper": AUTO_PAPER,
+WORKER = {"last_poll_error": None, "last_poll_at": None, "poll_seconds": POLL_SECONDS, "auto_paper": AUTO_PAPER,
           "ai_enabled": AI_MODE, "models_configured": configured(), "last_scan_at": None}
 
 
