@@ -254,9 +254,12 @@ class PaperEngine:
                 return {"ok": False, "reason": "ALREADY_OPEN"}
             cash = float(self._get("cash"))
             used_margin = sum((p["qty"] * p["entry"]) / self.config["leverage"] for p in positions)
-            free_margin = max(0.0, cash - used_margin)
             day_open = float(self._get("day_open_cash"))
             unrealized = sum(self._unrealized(p) for p in positions)
+            equity = max(0.0, cash + unrealized)
+            # Portfolio-wide margin budget: all open positions share one 20% equity limit.
+            portfolio_margin_limit = equity * self.config["max_notional_pct"] / 100
+            portfolio_margin_available = max(0.0, portfolio_margin_limit - used_margin)
             day_pnl = float(self._get("day_realized_pnl")) + unrealized
             if cash <= 0 or day_pnl <= -(day_open * self.config["daily_loss_limit_pct"] / 100):
                 return {"ok": False, "reason": "DAILY_LOSS_LIMIT"}
@@ -265,9 +268,9 @@ class PaperEngine:
             entry = price * (1 + direction * self.config["slippage_bps"] / 10000)
             stop_dist = entry * self.config["stop_pct"] / 100
             risk_budget = cash * self.config["risk_per_trade_pct"] / 100
-            # max_notional_pct is the maximum margin allocation; leverage scales notional.
+            # The portfolio margin cap is shared across every open position.
             max_notional = min(
-                free_margin * self.config["max_notional_pct"] / 100 * self.config["leverage"],
+                portfolio_margin_available * self.config["leverage"],
                 self.config["max_trade_notional_usd"],
             )
             raw_qty = min(risk_budget / stop_dist, max_notional / entry)
@@ -343,8 +346,12 @@ class PaperEngine:
                 "futures_simulation": {
                     "leverage": self.config["leverage"],
                     "margin_used": round(sum((p["qty"] * p["entry"]) / self.config["leverage"] for p in positions), 4),
-                    "margin_available": round(max(0.0, cash - sum((p["qty"] * p["entry"]) / self.config["leverage"] for p in positions)), 4),
-                    "margin_model": "isolated approximation; observed funding events accrued; illustrative liquidation threshold, not Binance tier-accurate"
+                    "margin_limit": round(max(0.0, cash + upnl) * self.config["max_notional_pct"] / 100, 4),
+                    "margin_available": round(max(0.0, max(0.0, cash + upnl) * self.config["max_notional_pct"] / 100 - sum((p["qty"] * p["entry"]) / self.config["leverage"] for p in positions)), 4),
+                    "notional_used": round(sum(p["qty"] * p["entry"] for p in positions), 4),
+                    "notional_limit": round(max(0.0, cash + upnl) * self.config["max_notional_pct"] / 100 * self.config["leverage"], 4),
+                    "max_trade_notional_usd": self.config["max_trade_notional_usd"],
+                    "margin_model": "portfolio-wide 20% equity margin cap; isolated approximation; observed funding events accrued; illustrative liquidation threshold, not Binance tier-accurate"
                 },
                 "net_pnl": round(cash + upnl - float(self._get("starting_balance")), 4),
                 "daily_realized_pnl": round(float(self._get("day_realized_pnl")), 4),
