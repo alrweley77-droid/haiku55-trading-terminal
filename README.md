@@ -2,9 +2,9 @@
 
 **Binance USDⓈ-M Futures public data · PAPER-only simulation · Optional AI council**
 
-[![CI](https://github.com/apha404ai/haiku55-trading-terminal/actions/workflows/ci.yml/badge.svg)](https://github.com/apha404ai/haiku55-trading-terminal/actions/workflows/ci.yml)
+[![CI](https://github.com/alrweley77-droid/haiku55-trading-terminal/actions/workflows/ci.yml/badge.svg)](https://github.com/alrweley77-droid/haiku55-trading-terminal/actions/workflows/ci.yml)
 
-> PAPER ONLY. This project does **not** place actual orders or trade real money. Public mid-prices can be real, but position execution and PnL are simulated. The archived originals were animated simulations with **entirely synthetic** market data and PnL; the public #21/#22 HTML files have now been converted into **static visual mockups**. No investment returns are promised.
+> PAPER ONLY. This project does **not** place actual orders or trade real money. Public Binance mark and last prices can be real, but position execution and PnL are simulated. The archived originals were animated simulations with **entirely synthetic** market data and PnL; the public #21/#22 HTML files have now been converted into **static visual mockups**. No investment returns are promised.
 
 ## What works
 
@@ -32,7 +32,7 @@
 
 Requirements: Python 3.12+. No Python package installation needed.
 
-    git clone https://github.com/apha404ai/haiku55-trading-terminal.git
+    git clone https://github.com/alrweley77-droid/haiku55-trading-terminal.git
     cd haiku55-trading-terminal
     export STARTING_BALANCE=1000
     export AUTO_PAPER=0
@@ -56,7 +56,7 @@ Docker example:
 
 **The GitHub code is published, but it is not automatically hosted.** Continuous running requires a web host. The included Dockerfile and railway.json support Railway deployment.
 
-1. Open Railway and create a project from the GitHub repository **apha404ai/haiku55-trading-terminal**.
+1. Open Railway and create a project from the GitHub repository **alrweley77-droid/haiku55-trading-terminal**.
 2. Set service Variables: CONTROL_TOKEN to a long random secret, AUTO_PAPER=0, AI_MODE=0, STARTING_BALANCE=1000, DB_PATH=/data/haiku55-paper-1000.db.
 3. Add a persistent volume mounted at **/data**, otherwise SQLite data may disappear after a redeploy.
 4. Keep the service at **one replica**. The included railway.json sets an ALWAYS restart policy and a /health startup check.
@@ -94,7 +94,7 @@ This is **not production-ready for real money**. Risk is not collateral accounti
 
 ## API and access
 
-- GET / : new dashboard with real public mids when available.
+- GET / : new dashboard with Binance public mark and last prices when available.
 - GET /health : HTTP service health + last feed status.
 - GET /api/status : public read-only paper account status.
 - GET /api/trades : public paper closed-trade history.
