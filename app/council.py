@@ -87,7 +87,7 @@ def evaluate(symbol, signal, prices, history):
         "Use only these numerical inputs. Respond with a SINGLE JSON object and no other text: "
         '{"side":"LONG|SHORT|WAIT","confidence":0.0,"reason":"up to 100 chars"}. '
         "Conservatively vote WAIT if insufficient information. "
-        f"Asset: {symbol}-PERP. Public Binance spot ticker prices (not executable quotes): {json.dumps(prices)}. "
+        f"Asset: {symbol}USDT USDⓈ-M perpetual futures. Public Binance futures ticker prices (not executable quotes): {json.dumps(prices)}. "
         f"Recent mark samples: {json.dumps(history[-36:])}. "
         f"Rule prefilter: {json.dumps(signal)}. "
         "Do not assume spreads, funding, volumes, liquidity or real-time news are known."
