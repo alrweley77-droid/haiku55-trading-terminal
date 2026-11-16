@@ -112,7 +112,7 @@ function render(){
     row("Market source","Binance USDⓈ-M Futures"),
     row("Price basis","Mark price for PnL / stops"),
     row("Data",s.feed_status),
-    row("Last price reference",money(s.last_prices?.BTC)),
+    row(viewSymbol+" last price reference",money(s.last_prices?.[viewSymbol])),
     row("Last market error",svc.last_poll_error||"None"),
     row("Controls",svc.controls_available?"Token configured":"Disabled"),
     row("Protection",s.killed?"KILLED":s.paused?"PAUSED":"ACTIVE"),
