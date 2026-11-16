@@ -85,5 +85,27 @@ class EngineTests(unittest.TestCase):
         self.assertIn(self.engine.rule_signal("BTC")["side"], ("LONG", "WAIT"))
 
 
+    def test_mark_price_drives_paper_pnl_and_last_price_is_reference_only(self):
+        self.engine.update_prices(
+            {"BTC": 101.0}, self.now + 1,
+            last_prices={"BTC": 102.0},
+            funding={"BTC": {"last_rate": 0.0001, "next_funding_time_ms": 1900000000000}},
+        )
+        status = self.engine.status(self.now + 1)
+        self.assertEqual(status["prices"]["BTC"], 101.0)
+        self.assertEqual(status["last_prices"]["BTC"], 102.0)
+        self.assertEqual(status["funding_indicative"]["BTC"]["last_rate"], 0.0001)
+        self.assertIn("not charged", status["futures_simulation"]["margin_model"])
+
+    def test_short_position_uses_mark_price_for_stop(self):
+        order = self.engine.open("SOL", "SHORT", 1, now=self.now + 1)
+        self.assertTrue(order["ok"])
+        # Last price remains below the stop; only the mark price crosses it.
+        self.engine.update_prices(
+            {"SOL": order["stop"] * 1.001}, self.now + 2,
+            last_prices={"SOL": order["entry"] * 0.99},
+        )
+        self.assertEqual(self.engine.trades()[0]["reason"], "STOP")
+
 if __name__ == "__main__":
     unittest.main()
