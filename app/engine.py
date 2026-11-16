@@ -75,6 +75,8 @@ class PaperEngine:
             # Illustrative safety assumption only; NOT Binance's symbol/tier-specific MMR.
             "maintenance_margin_rate": 0.005,
             "daily_loss_limit_pct": 2.5,
+            # PAPER-only protection: close remaining positions when the UTC daily loss gate is hit.
+            "auto_close_on_daily_loss": True,
             "stop_pct": 1.0,
             "take_profit_pct": 2.0,
             "fee_bps": 4.0,
@@ -178,6 +180,26 @@ class PaperEngine:
                     reason = "STOP" if price >= position["stop"] else "TARGET" if price <= position["target"] else None
                 if reason:
                     self._close(position, price, reason, now)
+
+            # Optional PAPER-only daily loss protection. Evaluate the remaining portfolio
+            # after normal stop/target/liquidation processing, then flatten at fresh marks.
+            if self.config["auto_close_on_daily_loss"]:
+                remaining = self._positions()
+                day_open = float(self._get("day_open_cash"))
+                daily_pnl = float(self._get("day_realized_pnl")) + sum(
+                    self._unrealized(position) for position in remaining
+                )
+                loss_limit = day_open * self.config["daily_loss_limit_pct"] / 100
+                if remaining and daily_pnl <= -loss_limit:
+                    for position in remaining:
+                        mark = valid.get(position["symbol"])
+                        if mark is not None:
+                            self._close(position, mark, "DAILY_LOSS_KILL", now)
+                    self._event(
+                        "RISK",
+                        f"Daily loss protection triggered at {daily_pnl:.2f} USD; remaining PAPER positions closed.",
+                        now,
+                    )
             self.db.commit()
 
     def _unrealized(self, position):
