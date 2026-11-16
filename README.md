@@ -49,7 +49,7 @@ Test locally:
 Docker example:
 
     docker build -t haiku55 .
-    docker run --rm -p 8080:8080 -v "$PWD/data:/data" -e DB_PATH=/data/haiku55.db -e CONTROL_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET -e AUTO_PAPER=1 -e AI_MODE=0 haiku55
+    docker run --rm -p 8080:8080 -v "$PWD/data:/data" -e DB_PATH=/data/haiku55-paper-1000.db -e CONTROL_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET -e AUTO_PAPER=1 -e AI_MODE=0 haiku55
 
 ## Deploy 24/7 on Railway
 
