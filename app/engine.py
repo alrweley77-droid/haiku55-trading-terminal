@@ -45,7 +45,9 @@ class PaperEngine:
                 type TEXT NOT NULL, message TEXT NOT NULL
             );
         """)
-        self.prices: dict[str, float] = {}
+        self.prices: dict[str, float] = {}  # Binance mark prices used for PAPER risk checks
+        self.last_prices: dict[str, float] = {}
+        self.funding: dict[str, dict] = {}
         self.last_market_at = 0.0
         self.price_history = defaultdict(lambda: deque(maxlen=240))
         self.cooldowns: dict[str, float] = {}
@@ -103,8 +105,8 @@ class PaperEngine:
             self._set("day_realized_pnl", 0)
             self._event("DAY", "Daily risk limits reset (UTC).", now)
 
-    def update_prices(self, prices: dict[str, float], now=None):
-        """Called only after successful retrieval from a real public market-data endpoint."""
+    def update_prices(self, prices: dict[str, float], now=None, last_prices=None, funding=None):
+        """Update mark prices and indicative funding metadata from Binance public futures data."""
         now = time.time() if now is None else float(now)
         with self.lock:
             valid = {s: float(p) for s, p in prices.items() if s in SYMBOLS and
@@ -113,6 +115,12 @@ class PaperEngine:
                 return
             self._roll_day(now)
             self.prices.update(valid)
+            if last_prices:
+                self.last_prices.update({s: float(p) for s, p in last_prices.items() if s in SYMBOLS and float(p) > 0})
+            if funding:
+                for symbol, details in funding.items():
+                    if symbol in SYMBOLS and isinstance(details, dict):
+                        self.funding[symbol] = details
             self.last_market_at = now
             for symbol, price in valid.items():
                 self.price_history[symbol].append({"t": now, "p": price})
@@ -256,6 +264,9 @@ class PaperEngine:
                 "feed_status": "LIVE" if self.last_market_at and now - self.last_market_at <= self.config["max_feed_age_seconds"] else "STALE",
                 "feed_age_seconds": round(now - self.last_market_at, 1) if self.last_market_at else None,
                 "prices": {s: self.prices.get(s) for s in SYMBOLS},
+                "last_prices": {s: self.last_prices.get(s) for s in SYMBOLS},
+                "funding_indicative": self.funding,
+                "price_basis": "Binance mark price for PAPER stops, PnL and risk; last price shown for reference",
                 "history": {s: list(self.price_history[s])[-90:] for s in SYMBOLS},
                 "cash": round(cash, 4), "equity": round(cash + upnl, 4),
                 "unrealized_pnl": round(upnl, 4),
@@ -263,7 +274,7 @@ class PaperEngine:
                     "leverage": self.config["leverage"],
                     "margin_used": round(sum((p["qty"] * p["entry"]) / self.config["leverage"] for p in positions), 4),
                     "margin_available": round(max(0.0, cash - sum((p["qty"] * p["entry"]) / self.config["leverage"] for p in positions)), 4),
-                    "margin_model": "isolated approximation; funding and liquidation not modeled"
+                    "margin_model": "isolated margin arithmetic only; funding is displayed but not charged; liquidation is not modeled"
                 },
                 "net_pnl": round(cash + upnl - float(self._get("starting_balance")), 4),
                 "daily_realized_pnl": round(float(self._get("day_realized_pnl")), 4),
