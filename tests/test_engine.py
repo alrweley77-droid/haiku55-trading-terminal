@@ -154,5 +154,47 @@ class EngineTests(unittest.TestCase):
         self.assertLess(liq, pos["stop"])
         self.engine.update_prices({"SOL": liq * 0.999}, self.now + 2)
         self.assertEqual(self.engine.trades()[0]["reason"], "LIQUIDATION_APPROX")
+
+    def test_manual_close_realizes_fees_and_updates_cash(self):
+        order = self.engine.open("BTC", "LONG", 1, now=self.now + 1)
+        self.assertTrue(order["ok"])
+        cash_before = self.engine.status(self.now + 1)["cash"]
+        self.engine.update_prices({"BTC": 101.0}, self.now + 2)
+        result = self.engine.close("BTC", now=self.now + 3)
+        self.assertTrue(result["ok"])
+        trade = self.engine.trades()[0]
+        self.assertEqual(trade["reason"], "MANUAL")
+        self.assertGreater(trade["fee"], 0)
+        self.assertAlmostEqual(self.engine.status(self.now + 3)["cash"], cash_before + trade["pnl"], places=4)
+        self.assertEqual(self.engine.status(self.now + 3)["positions"], [])
+
+    def test_kill_with_fresh_feed_flattens_all_paper_positions(self):
+        self.assertTrue(self.engine.open("BTC", "LONG", 1, now=self.now + 1)["ok"])
+        self.assertTrue(self.engine.open("ETH", "SHORT", 1, now=self.now + 1)["ok"])
+        result = self.engine.set_control("kill", now=self.now + 2)
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["killed"])
+        self.assertEqual(self.engine.status(self.now + 2)["positions"], [])
+        self.assertEqual({t["reason"] for t in self.engine.trades()}, {"KILL"})
+        self.assertEqual(self.engine.open("SOL", "LONG", 1, now=self.now + 3)["reason"], "KILL_SWITCH")
+
+    def test_short_funding_debit_is_included_in_realized_pnl(self):
+        due = int((self.now + 5) * 1000)
+        self.engine.update_prices(
+            {"ETH": 200.0}, self.now + 1,
+            funding={"ETH": {"last_rate": 0.001, "next_funding_time_ms": due}},
+        )
+        order = self.engine.open("ETH", "SHORT", 1, now=self.now + 2)
+        self.assertTrue(order["ok"])
+        self.engine.update_prices({"ETH": 200.0}, self.now + 6)
+        paid = self.engine._positions()[0]["funding_paid"]
+        self.assertLess(paid, 0)
+        self.engine.update_prices({"ETH": 199.0}, self.now + 7)
+        result = self.engine.close("ETH", now=self.now + 8)
+        self.assertTrue(result["ok"])
+        trade = self.engine.trades()[0]
+        self.assertAlmostEqual(trade["pnl"], result["pnl"], places=4)
+        # A negative funding_paid is a credit to the short, so it increases realized PnL.
+        self.assertGreater(trade["pnl"], (trade["exit"] - trade["entry"]) * -1 * trade["qty"] - trade["fee"])
 if __name__ == "__main__":
     unittest.main()
