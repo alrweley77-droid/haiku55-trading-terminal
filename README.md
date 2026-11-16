@@ -82,7 +82,9 @@ Use exact supported model IDs from provider accounts; APIs and availability chan
 |---|---|
 | Maximum positions | 3 |
 | Risk budget per entry | 0.5% of current cash |
-| Notional per position | 20% of current cash |
+| Maximum notional per position | $250 USD |
+| Portfolio-wide margin allocation | 20% of current equity across all open positions |
+| Aggregate notional ceiling | 60% of equity at 3x leverage (about $600 on $1,000 equity, before fees and PnL) |
 | UTC day loss gate for new entries | 2.5% of day opening cash, including open-position unrealized PnL |
 | Stop / take profit distance | 1% / 2% |
 | Assumed fee/slippage per side | 4 / 2 bps |
