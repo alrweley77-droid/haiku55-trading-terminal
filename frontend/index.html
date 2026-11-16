@@ -14,7 +14,7 @@ body{background:radial-gradient(ellipse at 18% -12%,#43205077,transparent 55%),r
 h1{font-size:26px;line-height:1;letter-spacing:.06em;margin:0;font-family:system-ui,sans-serif;font-weight:850}h1 span{color:var(--pink)}.sub{color:var(--muted);font-size:11px;letter-spacing:.13em;margin-top:5px}
 .top-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.chip{border:1px solid var(--line);color:var(--muted);padding:7px 10px;border-radius:7px;font-size:11px;letter-spacing:.1em}.chip.paper{border-color:#ff39996a;color:#ff8bc4}.chip.good{color:var(--green);border-color:#3df5b866}.chip.bad{color:var(--red);border-color:#ff567a66}.chip.warn{color:var(--gold);border-color:#ffc85b66}.chip strong{color:var(--txt)}
 .notice{margin-bottom:16px;background:#4214288c;border:1px solid #b9457866;padding:10px 14px;border-radius:9px;color:#ffbdd6;font-size:12px}
-.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:12px}.card{background:linear-gradient(160deg,#1c102abf,#110819f2);border:1px solid var(--line);border-radius:12px;min-width:0;overflow:hidden;box-shadow:0 5px 24px #0002}.pad{padding:17px}.lbl{font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--muted);font-weight:700}.val{font-family:system-ui,sans-serif;font-size:30px;letter-spacing:-.035em;font-weight:800;margin:10px 0 3px}.muted{color:var(--muted)}.green{color:var(--green)}.red{color:var(--red)}.pink{color:var(--pink)}.lav{color:var(--lav)}.gold{color:var(--gold)}.foot{font-size:11px;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:12px}.card{background:linear-gradient(160deg,#1c102abf,#110819f2);border:1px solid var(--line);border-radius:12px;min-width:0;overflow:hidden;box-shadow:0 5px 24px #0002}.pad{padding:17px}.lbl{font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--muted);font-weight:700}.val{font-family:system-ui,sans-serif;font-size:30px;letter-spacing:-.035em;font-weight:800;margin:10px 0 3px}.muted{color:var(--muted)}.green{color:var(--green)}.red{color:var(--red)}.pink{color:var(--pink)}.lav{color:var(--lav)}.gold{color:var(--gold)}.foot{font-size:11px;color:var(--muted)}
 .main{display:grid;grid-template-columns:1.2fr 2.3fr 1.18fr;gap:12px;grid-template-areas:"pairs chart council" "orders chart ops" "orders trades ops" "events events events";align-items:stretch}.pairs{grid-area:pairs}.chart{grid-area:chart}.council{grid-area:council}.orders{grid-area:orders}.trades{grid-area:trades}.ops{grid-area:ops}.events{grid-area:events}
 .head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:12px 15px;gap:10px}.head b{letter-spacing:.08em;font-size:11px}.body{padding:14px}.pair{padding:12px 10px;border-bottom:1px solid #37204488;display:grid;grid-template-columns:1fr auto;gap:4px}.pair:last-child{border:0}.pair b{font-size:15px}.pair .price{font-weight:800;font-size:16px;text-align:right}.pair .n{font-size:10px;color:var(--muted)}.pair.active{background:#9f36711b}.chartMeta{display:flex;gap:18px;flex-wrap:wrap;font-size:11px;margin-bottom:10px;color:var(--muted)}.chartMeta strong{color:var(--txt)}#priceChart{display:block;width:100%;height:315px;background:linear-gradient(180deg,#27103922,transparent);border-radius:8px}
 .legend{display:flex;justify-content:space-between;gap:5px;flex-wrap:wrap;margin-top:8px;color:var(--muted);font-size:10px}
@@ -30,23 +30,23 @@ button{color:var(--txt);background:#24142f;border:1px solid #543166;padding:10px
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="brand"><div class="orb"></div><div><h1>HAIKU<span>55</span> / DESK</h1><div class="sub">ALPHA404 · AUTONOMOUS PAPER TERMINAL · UTC</div></div></div>
+    <div class="brand"><div class="orb"></div><div><h1>HAIKU<span>55</span> / DESK</h1><div class="sub">BINANCE USDⓈ-M FUTURES · PAPER SIMULATION · UTC</div></div></div>
     <div class="top-right">
       <span class="chip paper">PAPER ONLY</span><span class="chip" id="feed">CONNECTING</span>
       <span class="chip" id="autostatus">SCANNING</span><span class="chip" id="clock">UTC --:--:--</span>
     </div>
   </header>
-  <div class="notice">SIMULATION OF ORDERS, REAL PUBLIC MID-PRICES WHEN CONNECTED. No exchange orders, wallets, API trading permissions or guaranteed returns. Model votes only appear when provider keys are configured and calls succeed.</div>
+  <div class="notice">SIMULATED ORDERS · BINANCE PUBLIC FUTURES MARK / LAST PRICES WHEN CONNECTED. No exchange orders, wallets, API trading permissions or guaranteed returns. Model votes only appear when provider keys are configured and calls succeed.</div>
   <div class="stats">
     <section class="card pad"><div class="lbl">Paper equity</div><div class="val" id="equity">--</div><div class="foot">Mark-to-market · USD</div></section>
     <section class="card pad"><div class="lbl">Net paper PnL</div><div class="val" id="net">--</div><div class="foot">From starting balance</div></section>
     <section class="card pad"><div class="lbl">Day realized PnL</div><div class="val" id="today">--</div><div class="foot">UTC risk day</div></section>
     <section class="card pad"><div class="lbl">Paper win rate</div><div class="val" id="wr">--</div><div class="foot" id="count">0 closed positions</div></section>
-    <section class="card pad"><div class="lbl">Exposure</div><div class="val" id="exposure">--</div><div class="foot">Concurrent paper positions</div></section>
+    <section class="card pad"><div class="lbl">Margin used</div><div class="val" id="marginUsed">--</div><div class="foot">Approx. isolated margin · 3x</div></section><section class="card pad"><div class="lbl">Margin available</div><div class="val" id="marginAvailable">--</div><div class="foot">Estimated free margin</div></section>
   </div>
   <main class="main">
-    <section class="card pairs"><div class="head"><b>MARKET / HYPERLIQUID</b><span class="chip" id="marketAge">--</span></div><div class="body" id="pairs"><div class="empty">Waiting for live mids...</div></div></section>
-    <section class="card chart"><div class="head"><b id="chartTitle">BTC / PAPER MARKET</b><span class="chip">PUBLIC DATA</span></div><div class="body"><div class="chartMeta"><span>Mid <strong id="mid">--</strong></span><span>Samples <strong id="samples">--</strong></span><span>Source <strong>Hyperliquid</strong></span></div><canvas id="priceChart"></canvas><div class="legend"><span class="pink">● INDICATIVE MID PRICE</span><span id="chartRange">Waiting for samples</span><span>5s polling</span></div></div></section>
+    <section class="card pairs"><div class="head"><b>BINANCE USDⓈ-M FUTURES</b><span class="chip" id="marketAge">--</span></div><div class="body" id="pairs"><div class="empty">Waiting for Binance mark prices...</div></div></section>
+    <section class="card chart"><div class="head"><b id="chartTitle">BTC / PAPER MARKET</b><span class="chip">PUBLIC DATA</span></div><div class="body"><div class="chartMeta"><span>Mark <strong id="mid">--</strong> · Last <strong id="last">--</strong></span><span>Samples <strong id="samples">--</strong></span><span>Funding <strong id="funding">--</strong></span></div><canvas id="priceChart"></canvas><div class="legend"><span class="pink">● BINANCE MARK PRICE</span><span id="chartRange">Waiting for samples</span><span>5s polling</span></div></div></section>
     <section class="card council"><div class="head"><b>HAIKU / AI COUNCIL</b><span class="chip" id="aiMode">UNCONFIGURED</span></div><div class="body">
       <div class="agent"><span class="agentName"><span class="circle">H</span><span><b>HAIKU</b><small>HEAD · ORCHESTRATOR</small></span></span><span class="vote" id="vote-HAIKU">OFFLINE</span></div>
       <div class="agent"><span class="agentName"><span class="circle">G</span><span><b>GPT</b><small>RISK REVIEW</small></span></span><span class="vote" id="vote-GPT">OFFLINE</span></div>
@@ -63,11 +63,11 @@ button{color:var(--txt);background:#24142f;border:1px solid #543166;padding:10px
       <div class="msg" id="actionMsg">Controls require a server-side CONTROL_TOKEN.</div>
       <p class="lbl" style="margin-top:14px">RISK POLICY</p><div id="risk"></div>
     </div></section>
-    <section class="card trades"><div class="head"><b>OPEN POSITIONS</b><span class="chip" id="posCount">0 OPEN</span></div><div class="body tabler"><table><thead><tr><th>PAIR</th><th>SIDE</th><th>ENTRY</th><th>STOP / TP</th><th>PnL</th></tr></thead><tbody id="positions"><tr><td colspan="5">No open positions</td></tr></tbody></table></div></section>
+    <section class="card trades"><div class="head"><b>OPEN POSITIONS</b><span class="chip" id="posCount">0 OPEN</span></div><div class="body tabler"><table><thead><tr><th>PAIR</th><th>SIDE</th><th>ENTRY / MARK</th><th>STOP / TP</th><th>EST. LIQ.</th><th>FUNDING</th><th>PnL</th></tr></thead><tbody id="positions"><tr><td colspan="7">No open positions</td></tr></tbody></table></div></section>
     <section class="card ops"><div class="head"><b>24/7 SERVICE STATUS</b><span class="chip" id="serviceStatus">STARTING</span></div><div class="body">
       <div id="operations"></div>
       <p class="lbl" style="margin-top:14px">SAFETY</p><div class="msg">If market data goes stale, new trades are blocked. After a kill, the system stays locked even after restart; paper positions may remain open if feed is stale. Use one running replica with persistent storage.</div>
-      <div class="links"><a href="/health" target="_blank" rel="noopener">Health JSON</a><a href="/api/trades" target="_blank" rel="noopener">Trade ledger</a><a href="https://github.com/apha404ai/haiku55-trading-terminal" target="_blank" rel="noopener">Source on GitHub</a></div>
+      <div class="links"><a href="/health" target="_blank" rel="noopener">Health JSON</a><a href="/api/trades" target="_blank" rel="noopener">Trade ledger</a><a href="https://github.com/alrweley77-droid/haiku55-trading-terminal" target="_blank" rel="noopener">Source on GitHub</a></div>
     </div></section>
     <section class="card events"><div class="head"><b>EXECUTION LOG / 30 EVENTS</b><span class="chip" id="logCount">--</span></div><div class="body logs" id="events"><div class="empty">No events yet</div></div></section>
   </main>

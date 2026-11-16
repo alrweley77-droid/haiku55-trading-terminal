@@ -1,17 +1,17 @@
 # HAIKU55 · 24/7 Crypto Trading Terminal
 
-**Alpha404 · Live public market data · Autonomous paper trading · Optional AI council**
+**Binance USDⓈ-M Futures public data · PAPER-only simulation · Optional AI council**
 
-[![CI](https://github.com/apha404ai/haiku55-trading-terminal/actions/workflows/ci.yml/badge.svg)](https://github.com/apha404ai/haiku55-trading-terminal/actions/workflows/ci.yml)
+[![CI](https://github.com/alrweley77-droid/haiku55-trading-terminal/actions/workflows/ci.yml/badge.svg)](https://github.com/alrweley77-droid/haiku55-trading-terminal/actions/workflows/ci.yml)
 
-> PAPER ONLY. This project does **not** place actual orders or trade real money. Public mid-prices can be real, but position execution and PnL are simulated. The archived originals were animated simulations with **entirely synthetic** market data and PnL; the public #21/#22 HTML files have now been converted into **static visual mockups**. No investment returns are promised.
+> PAPER ONLY. This project does **not** place actual orders or trade real money. Public Binance mark and last prices can be real, but position execution and PnL are simulated. The archived originals were animated simulations with **entirely synthetic** market data and PnL; the public #21/#22 HTML files have now been converted into **static visual mockups**. No investment returns are promised.
 
 ## What works
 
-- BTC, ETH and SOL perpetual indicative mid-prices from the Hyperliquid public allMids API.
-- Always-on server-side price poller and autonomous, rules-only PAPER strategy.
+- BTC, ETH and SOL Binance USDⓈ-M perpetual futures mark prices, last prices and indicative funding metadata from public Binance endpoints.
+- Always-on public market-data poller. Automatic PAPER strategy is disabled by default and must be explicitly enabled.
 - A polished dark/pink responsive HTML dashboard with current prices, price chart, paper equity and live paper positions.
-- Stop/target management, fee/slippage assumptions, position-size caps and UTC daily realized loss cutoff.
+- Mark-price-based PAPER stop/target checks, assumed fees/slippage, 3x leverage margin arithmetic and a UTC daily loss gate that includes unrealized PnL when blocking new entries.
 - SQLite persistence for paper positions, closed trades and audit events.
 - Authenticated paper LONG, SHORT, CLOSE, PAUSE, RESUME and latching KILL.
 - Optional four-model AI council using configurable APIs: Anthropic (Haiku head), OpenAI (GPT), xAI (Grok), Google (Gemini). No model can bypass the hard-coded risk gate.
@@ -23,7 +23,7 @@
 | Variables | Behavior |
 |---|---|
 | AUTO_PAPER=0 | Manual paper orders only (requires control token) |
-| AUTO_PAPER=1 and AI_MODE=0 (default) | Autonomous trend-heuristic PAPER trades, explicitly **RULES_ONLY**; zero model calls |
+| AUTO_PAPER=1 and AI_MODE=0 | Autonomous trend-heuristic PAPER trades, explicitly **RULES_ONLY**; zero model calls |
 | AUTO_PAPER=1 and AI_MODE=1 | Four provider APIs vote on rule-prefiltered setups; all API keys + model IDs required; model errors or disagreement block trades |
 
 **HAIKU55 is a project brand** and is not a verified Anthropic model identifier. Configure ANTHROPIC_MODEL to an actual available model ID supported by your provider. The Grok reviewer uses price-only numeric inputs, **not** live X/news feeds.
@@ -32,9 +32,10 @@
 
 Requirements: Python 3.12+. No Python package installation needed.
 
-    git clone https://github.com/apha404ai/haiku55-trading-terminal.git
+    git clone https://github.com/alrweley77-droid/haiku55-trading-terminal.git
     cd haiku55-trading-terminal
-    export AUTO_PAPER=1
+    export STARTING_BALANCE=1000
+    export AUTO_PAPER=0
     export AI_MODE=0
     export CONTROL_TOKEN="$(python -c 'import secrets;print(secrets.token_urlsafe(32))')"
     python -m app.server
@@ -49,14 +50,14 @@ Test locally:
 Docker example:
 
     docker build -t haiku55 .
-    docker run --rm -p 8080:8080 -v "$PWD/data:/data" -e DB_PATH=/data/haiku55.db -e CONTROL_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET -e AUTO_PAPER=1 -e AI_MODE=0 haiku55
+    docker run --rm -p 8080:8080 -v "$PWD/data:/data" -e DB_PATH=/data/haiku55-paper-1000.db -e CONTROL_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET -e STARTING_BALANCE=1000 -e AUTO_PAPER=0 -e AI_MODE=0 haiku55
 
 ## Deploy 24/7 on Railway
 
 **The GitHub code is published, but it is not automatically hosted.** Continuous running requires a web host. The included Dockerfile and railway.json support Railway deployment.
 
-1. Open Railway and create a project from the GitHub repository **apha404ai/haiku55-trading-terminal**.
-2. Set service Variables: CONTROL_TOKEN to a long random secret, AUTO_PAPER=1, AI_MODE=0, DB_PATH=/data/haiku55.db.
+1. Open Railway and create a project from the GitHub repository **alrweley77-droid/haiku55-trading-terminal**.
+2. Set service Variables: CONTROL_TOKEN to a long random secret, AUTO_PAPER=0, AI_MODE=0, STARTING_BALANCE=1000, DB_PATH=/data/haiku55-paper-1000.db.
 3. Add a persistent volume mounted at **/data**, otherwise SQLite data may disappear after a redeploy.
 4. Keep the service at **one replica**. The included railway.json sets an ALWAYS restart policy and a /health startup check.
 5. Generate a public Railway domain and open its root URL on your phone. Monitor /api/status for feed freshness.
@@ -81,19 +82,21 @@ Use exact supported model IDs from provider accounts; APIs and availability chan
 |---|---|
 | Maximum positions | 3 |
 | Risk budget per entry | 0.5% of current cash |
-| Notional per position | 20% of current cash |
-| UTC day realized-loss cutoff | 3% of day opening cash |
+| Maximum notional per position | $250 USD |
+| Portfolio-wide margin allocation | 60% of current equity across all open positions |
+| Aggregate notional ceiling | 180% of equity at 3x leverage (theoretical $1,800 on $1,000 equity; the $250 per-position cap and three-position limit constrain actual exposure to at most $750) |
+| UTC day loss gate | 2.5% of day opening cash, including open-position unrealized PnL; blocks new entries and attempts to close remaining PAPER positions when fresh marks are available (stale/missing feed can leave positions open) |
 | Stop / take profit distance | 1% / 2% |
 | Assumed fee/slippage per side | 4 / 2 bps |
 | Symbol cooldown after exit | 600 seconds (in-memory) |
 | Maximum stale-feed age at entry | 20 seconds |
 | Minimum signal confidence | 65% |
 
-This is **not production-ready for real money**. Risk is not collateral accounting. Stop triggers use public mids, with approximate fills; funding, liquidation risk, order book liquidity, exchange precision and actual brokerage costs are not modeled. The daily risk cutoff counts **realized** PnL only. The KILL flag persists across restarts; if the feed is stale, paper positions may stay unresolved. There is no unauthenticated kill-reset endpoint.
+This is **not production-ready for real money**. Risk is not collateral accounting. Stop triggers use Binance mark prices with approximate paper fills. Funding uses the last published rate for one observed funding boundary; missed multiple boundaries cannot be reconstructed. Liquidation uses an illustrative 0.5% maintenance-margin assumption and is NOT Binance tier-accurate. Exchange maintenance-margin brackets, order-book liquidity, precision and actual brokerage costs are not fully modeled. The daily loss gate includes unrealized PnL across all open positions. When the 2.5% UTC daily loss threshold is reached, the PAPER-only auto-close protection closes remaining positions at the latest fresh mark prices with simulated fees and slippage, then blocks new entries. This is a simulation safeguard, not a guaranteed execution price. The KILL flag persists across restarts; if the feed is stale, paper positions may stay unresolved. There is no unauthenticated kill-reset endpoint.
 
 ## API and access
 
-- GET / : new dashboard with real public mids when available.
+- GET / : new dashboard with Binance public mark and last prices when available.
 - GET /health : HTTP service health + last feed status.
 - GET /api/status : public read-only paper account status.
 - GET /api/trades : public paper closed-trade history.

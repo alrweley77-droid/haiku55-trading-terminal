@@ -87,28 +87,34 @@ def evaluate(symbol, signal, prices, history):
         "Use only these numerical inputs. Respond with a SINGLE JSON object and no other text: "
         '{"side":"LONG|SHORT|WAIT","confidence":0.0,"reason":"up to 100 chars"}. '
         "Conservatively vote WAIT if insufficient information. "
-        f"Asset: {symbol}-PERP. Public indicative mid prices: {json.dumps(prices)}. "
+        f"Asset: {symbol}USDT USDⓈ-M perpetual futures. Public Binance futures ticker prices (not executable quotes): {json.dumps(prices)}. "
         f"Recent mark samples: {json.dumps(history[-36:])}. "
         f"Rule prefilter: {json.dumps(signal)}. "
-        "Do not assume spreads, funding, volumes, liquidity or real-time news are known."
+        "Do not assume spreads, funding, volumes, liquidity or real-time news are known. "
+        "This is a PAPER-only 3x leverage simulation; funding accrual and liquidation are approximate PAPER simulations, not exchange-accurate."
     )
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-        futures = {label: pool.submit(_call, label, prompt) for label, _, _ in PROVIDERS}
-        votes = []
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+    futures = {label: pool.submit(_call, label, prompt) for label, _, _ in PROVIDERS}
+    votes = []
+    try:
         for label, future in futures.items():
             try:
                 vote = future.result(timeout=12)
             except Exception as exc:
+                future.cancel()
                 vote = {"side": "WAIT", "confidence": 0,
                         "reason": "Provider unavailable: " + type(exc).__name__}
             votes.append({"model": label, **vote})
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
     selected = signal["side"]
     # Require Haiku as head and at least 3 of 4 agreeing; no conflicting vote allowed.
     approve = sum(v["side"] == selected and v["confidence"] >= .65 for v in votes)
     conflict = any(v["side"] not in (selected, "WAIT") for v in votes)
     head_ok = votes[0]["side"] == selected and votes[0]["confidence"] >= .65
     accepted = approve >= 3 and not conflict and head_ok
-    confidence = sum(v["confidence"] for v in votes if v["side"] == selected) / max(1, approve)
+    confidence = sum(v["confidence"] for v in votes
+                     if v["side"] == selected and v["confidence"] >= .65) / max(1, approve)
     return {"side": selected if accepted else "WAIT", "confidence": round(confidence, 3),
             "source": "AI_COUNCIL", "votes": votes,
             "reason": "Council approved" if accepted else "Council abstained / disagreed"}
