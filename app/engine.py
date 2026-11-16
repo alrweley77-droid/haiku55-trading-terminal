@@ -268,9 +268,18 @@ class PaperEngine:
             entry = price * (1 + direction * self.config["slippage_bps"] / 10000)
             stop_dist = entry * self.config["stop_pct"] / 100
             risk_budget = cash * self.config["risk_per_trade_pct"] / 100
-            # The portfolio margin cap is shared across every open position.
+            # Reserve for the new position's estimated entry/exit fees and entry slippage.
+            # This keeps reported used margin within the portfolio cap after opening costs
+            # reduce marked equity.
+            margin_fraction = self.config["max_notional_pct"] / 100
+            estimated_cost_rate = (
+                self.config["slippage_bps"] + 2 * self.config["fee_bps"]
+            ) / 10000
+            max_notional_by_portfolio = portfolio_margin_available / (
+                (1 / self.config["leverage"]) + margin_fraction * estimated_cost_rate
+            )
             max_notional = min(
-                portfolio_margin_available * self.config["leverage"],
+                max_notional_by_portfolio,
                 self.config["max_trade_notional_usd"],
             )
             raw_qty = min(risk_budget / stop_dist, max_notional / entry)
