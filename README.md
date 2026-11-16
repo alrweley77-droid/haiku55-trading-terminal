@@ -85,7 +85,7 @@ Use exact supported model IDs from provider accounts; APIs and availability chan
 | Maximum notional per position | $250 USD |
 | Portfolio-wide margin allocation | 60% of current equity across all open positions |
 | Aggregate notional ceiling | 180% of equity at 3x leverage (theoretical $1,800 on $1,000 equity; the $250 per-position cap and three-position limit constrain actual exposure to at most $750) |
-| UTC day loss gate | 2.5% of day opening cash, including open-position unrealized PnL; blocks new entries and automatically closes remaining PAPER positions at fresh marks |
+| UTC day loss gate | 2.5% of day opening cash, including open-position unrealized PnL; blocks new entries and attempts to close remaining PAPER positions when fresh marks are available (stale/missing feed can leave positions open) |
 | Stop / take profit distance | 1% / 2% |
 | Assumed fee/slippage per side | 4 / 2 bps |
 | Symbol cooldown after exit | 600 seconds (in-memory) |
