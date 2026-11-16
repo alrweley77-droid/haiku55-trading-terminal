@@ -182,7 +182,9 @@ class PaperEngine:
         px = self.prices.get(position["symbol"], position["entry"])
         direction = 1 if position["side"] == "LONG" else -1
         gross = (px - position["entry"]) * position["qty"] * direction
-        return gross - float(position.get("funding_paid") or 0)
+        # Mark equity includes entry fee and an estimated taker fee to close.
+        estimated_exit_fee = abs(position["qty"] * px) * self.config["fee_bps"] / 10000
+        return gross - float(position.get("fee_in") or 0) - estimated_exit_fee - float(position.get("funding_paid") or 0)
 
     def liquidation_price(self, position):
         """Illustrative isolated liquidation threshold; not an exchange-accurate quote."""
