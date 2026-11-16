@@ -91,7 +91,7 @@ def evaluate(symbol, signal, prices, history):
         f"Recent mark samples: {json.dumps(history[-36:])}. "
         f"Rule prefilter: {json.dumps(signal)}. "
         "Do not assume spreads, funding, volumes, liquidity or real-time news are known. "
-        "This is a PAPER-only 3x leverage simulation; funding and liquidation are not modeled."
+        "This is a PAPER-only 3x leverage simulation; funding accrual and liquidation are approximate PAPER simulations, not exchange-accurate."
     )
     pool = concurrent.futures.ThreadPoolExecutor(max_workers=4)
     futures = {label: pool.submit(_call, label, prompt) for label, _, _ in PROVIDERS}
