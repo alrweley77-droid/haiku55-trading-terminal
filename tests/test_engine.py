@@ -95,7 +95,7 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(status["prices"]["BTC"], 101.0)
         self.assertEqual(status["last_prices"]["BTC"], 102.0)
         self.assertEqual(status["funding_indicative"]["BTC"]["last_rate"], 0.0001)
-        self.assertIn("not charged", status["futures_simulation"]["margin_model"])
+        self.assertIn("approximation", status["futures_simulation"]["margin_model"])
 
     def test_short_position_uses_mark_price_for_stop(self):
         order = self.engine.open("SOL", "SHORT", 1, now=self.now + 1)
