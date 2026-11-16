@@ -1,4 +1,4 @@
-"""Deterministic, persistent paper-order engine. This module never signs or sends real orders."""
+"""Persistent PAPER-only order engine. Never signs or sends real exchange orders."""
 from __future__ import annotations
 
 import json
@@ -54,7 +54,7 @@ class PaperEngine:
             "max_positions": 3,
             "risk_per_trade_pct": 0.5,
             "max_notional_pct": 20.0,
-            "daily_loss_limit_pct": 3.0,
+            "daily_loss_limit_pct": 2.5,
             "stop_pct": 1.0,
             "take_profit_pct": 2.0,
             "fee_bps": 4.0,
@@ -188,7 +188,9 @@ class PaperEngine:
                 return {"ok": False, "reason": "ALREADY_OPEN"}
             cash = float(self._get("cash"))
             day_open = float(self._get("day_open_cash"))
-            if cash <= 0 or float(self._get("day_realized_pnl")) <= -(day_open * self.config["daily_loss_limit_pct"] / 100):
+            unrealized = sum(self._unrealized(p) for p in positions)
+            day_pnl = float(self._get("day_realized_pnl")) + unrealized
+            if cash <= 0 or day_pnl <= -(day_open * self.config["daily_loss_limit_pct"] / 100):
                 return {"ok": False, "reason": "DAILY_LOSS_LIMIT"}
             price = self.prices[symbol]
             direction = 1 if side == "LONG" else -1
@@ -245,7 +247,7 @@ class PaperEngine:
             upnl = sum(p["upnl"] for p in positions)
             closed = self.db.execute("SELECT count(*) AS n, sum(CASE WHEN pnl>0 THEN 1 ELSE 0 END) AS wins FROM trades").fetchone()
             return {
-                "mode": "PAPER", "market_source": "Hyperliquid public allMids",
+                "mode": "PAPER", "market_source": "Binance public ticker price (PAPER only)",
                 "feed_status": "LIVE" if self.last_market_at and now - self.last_market_at <= self.config["max_feed_age_seconds"] else "STALE",
                 "feed_age_seconds": round(now - self.last_market_at, 1) if self.last_market_at else None,
                 "prices": {s: self.prices.get(s) for s in SYMBOLS},
