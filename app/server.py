@@ -59,7 +59,7 @@ def market_fetch():
         funding[asset] = {
             "last_rate": rate,
             "next_funding_time_ms": next_funding,
-            "source": "Binance premiumIndex; indicative only, not accrued in PAPER PnL"
+            "source": "Binance premiumIndex; last published rate used for one observed boundary only"
         }
     return marks, last_prices, funding
 
