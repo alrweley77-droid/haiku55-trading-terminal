@@ -69,7 +69,7 @@ class PaperEngine:
         self.config = {
             "max_positions": 3,
             "risk_per_trade_pct": 0.5,
-            "max_notional_pct": 20.0,
+            "max_notional_pct": 60.0,
             "max_trade_notional_usd": 250.0,
             "leverage": 3.0,
             # Illustrative safety assumption only; NOT Binance's symbol/tier-specific MMR.
