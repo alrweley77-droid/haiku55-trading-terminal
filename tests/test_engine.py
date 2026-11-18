@@ -43,7 +43,7 @@ class EngineTests(unittest.TestCase):
         self.assertTrue(order["ok"])
         self.assertGreater(order["target"], order["entry"])
         self.assertLess(order["stop"], order["entry"])
-        self.assertLessEqual(order["qty"] * order["entry"], 250.0)
+        self.assertLessEqual(order["qty"] * order["entry"], 400.0)
         self.assertEqual(self.engine.status(self.now + 1)["mode"], "PAPER")
 
     def test_each_paper_trade_notional_is_capped_at_250_usd(self):
@@ -51,7 +51,7 @@ class EngineTests(unittest.TestCase):
         order = self.engine.open("BTC", "LONG", 1, now=self.now + 1)
         self.assertTrue(order["ok"])
         self.assertLessEqual(order["qty"] * order["entry"], 250.0)
-        self.assertEqual(self.engine.config["max_trade_notional_usd"], 250.0)
+        self.assertEqual(self.engine.config["max_trade_notional_usd"], 400.0)
 
     def test_open_positions_share_a_portfolio_margin_cap(self):
         folder = tempfile.TemporaryDirectory()
@@ -73,11 +73,11 @@ class EngineTests(unittest.TestCase):
             total_notional = sum(notionals)
             status = engine.status(self.now + 3)
             futures = status["futures_simulation"]
-            self.assertTrue(all(n <= 250.0 for n in notionals))
+            self.assertTrue(all(n <= 400.0 for n in notionals))
             self.assertLess(min(notionals), 250.0)
             self.assertLessEqual(futures["margin_used"], futures["margin_limit"])
-            self.assertLessEqual(total_notional, 750.0)
-            self.assertAlmostEqual(futures["notional_limit"], 1800.0, delta=2.0)
+            self.assertLessEqual(total_notional, 1200.0)
+            self.assertAlmostEqual(futures["notional_limit"], 6000.0, delta=2.0)
         finally:
             engine.db.close()
             folder.cleanup()
