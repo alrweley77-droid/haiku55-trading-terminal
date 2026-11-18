@@ -77,7 +77,7 @@ class PaperEngine:
             "daily_loss_limit_pct": 2.5,
             # PAPER-only protection: close remaining positions when the UTC daily loss gate is hit.
             "auto_close_on_daily_loss": True,
-            "stop_pct": 2.0,
+            "stop_pct": 10.0,
             "take_profit_pct": 2.0,
             "fee_bps": 4.0,
             "slippage_bps": 2.0,
