@@ -71,13 +71,13 @@ class PaperEngine:
             "risk_per_trade_pct": 0.5,
             "max_notional_pct": 60.0,
             "max_trade_notional_usd": 250.0,
-            "leverage": 3.0,
+            "leverage": 10.0,
             # Illustrative safety assumption only; NOT Binance's symbol/tier-specific MMR.
             "maintenance_margin_rate": 0.005,
             "daily_loss_limit_pct": 2.5,
             # PAPER-only protection: close remaining positions when the UTC daily loss gate is hit.
             "auto_close_on_daily_loss": True,
-            "stop_pct": 1.0,
+            "stop_pct": 2.0,
             "take_profit_pct": 2.0,
             "fee_bps": 4.0,
             "slippage_bps": 2.0,
@@ -382,7 +382,7 @@ class PaperEngine:
                     "notional_used": round(sum(p["qty"] * p["entry"] for p in positions), 4),
                     "notional_limit": round(max(0.0, cash + upnl) * self.config["max_notional_pct"] / 100 * self.config["leverage"], 4),
                     "max_trade_notional_usd": self.config["max_trade_notional_usd"],
-                    "margin_model": "portfolio-wide 20% equity margin cap; isolated approximation; observed funding events accrued; illustrative liquidation threshold, not Binance tier-accurate"
+                    "margin_model": "portfolio-wide 60% equity margin cap; 10x leverage; isolated approximation; observed funding events accrued; illustrative liquidation threshold, not Binance tier-accurate"
                 },
                 "net_pnl": round(cash + upnl - float(self._get("starting_balance")), 4),
                 "daily_realized_pnl": round(float(self._get("day_realized_pnl")), 4),
