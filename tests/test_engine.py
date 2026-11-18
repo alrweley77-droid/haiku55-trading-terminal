@@ -18,7 +18,7 @@ class EngineTests(unittest.TestCase):
         self.engine.db.close()
         self.folder.cleanup()
 
-    def test_new_paper_defaults_keep_cash_risk_at_half_percent_with_10x_and_2pct_stop(self):
+    def test_new_paper_defaults_use_5pct_risk_budget_400_cap_10x_and_2pct_stop(self):
         folder = tempfile.TemporaryDirectory()
         path = str(Path(folder.name) / "risk-10x.db")
         engine = PaperEngine(path, starting_balance=1000)
@@ -28,9 +28,12 @@ class EngineTests(unittest.TestCase):
             self.assertTrue(order["ok"])
             self.assertEqual(engine.config["leverage"], 10.0)
             self.assertEqual(engine.config["stop_pct"], 2.0)
-            self.assertAlmostEqual(order["entry"] - order["stop"], order["entry"] * 0.02, places=6)
-            self.assertLessEqual(order["qty"] * order["entry"] * 0.02, 5.0)
-            self.assertAlmostEqual((order["qty"] * order["entry"]) / 10.0, 25.0, delta=0.1)
+            self.assertEqual(engine.config["risk_per_trade_pct"], 5.0)
+            self.assertEqual(engine.config["max_trade_notional_usd"], 400.0)
+            self.assertLessEqual(order["qty"] * order["entry"], 400.0)
+            # The $400 notional cap binds before the $50 risk budget:
+            # at a 2% stop, maximum gross stop loss is about $8, not $50.
+            self.assertLessEqual(order["qty"] * (order["entry"] - order["stop"]), 8.0)
         finally:
             engine.db.close()
             folder.cleanup()
