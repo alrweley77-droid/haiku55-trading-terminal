@@ -18,20 +18,40 @@ class EngineTests(unittest.TestCase):
         self.engine.db.close()
         self.folder.cleanup()
 
+    def test_new_paper_defaults_use_5pct_risk_budget_400_cap_10x_and_10pct_stop(self):
+        folder = tempfile.TemporaryDirectory()
+        path = str(Path(folder.name) / "risk-10x.db")
+        engine = PaperEngine(path, starting_balance=1000)
+        try:
+            engine.update_prices({"BTC": 100.0}, self.now)
+            order = engine.open("BTC", "LONG", 1, now=self.now + 1)
+            self.assertTrue(order["ok"])
+            self.assertEqual(engine.config["leverage"], 10.0)
+            self.assertEqual(engine.config["stop_pct"], 10.0)
+            self.assertEqual(engine.config["risk_per_trade_pct"], 5.0)
+            self.assertEqual(engine.config["max_trade_notional_usd"], 400.0)
+            self.assertLessEqual(order["qty"] * order["entry"], 400.0)
+            # The $400 notional cap binds before the $50 risk budget:
+            # at a 10% stop, maximum gross stop loss is about $40, not $50.
+            self.assertLessEqual(order["qty"] * (order["entry"] - order["stop"]), 40.0)
+        finally:
+            engine.db.close()
+            folder.cleanup()
+
     def test_paper_trade_enters_with_stop_and_target(self):
         order = self.engine.open("BTC", "LONG", 1, now=self.now + 1)
         self.assertTrue(order["ok"])
         self.assertGreater(order["target"], order["entry"])
         self.assertLess(order["stop"], order["entry"])
-        self.assertLessEqual(order["qty"] * order["entry"], 250.0)
+        self.assertLessEqual(order["qty"] * order["entry"], 400.0)
         self.assertEqual(self.engine.status(self.now + 1)["mode"], "PAPER")
 
-    def test_each_paper_trade_notional_is_capped_at_250_usd(self):
+    def test_each_paper_trade_notional_is_capped_at_400_usd(self):
         # The cap applies to position notional, not leveraged margin.
         order = self.engine.open("BTC", "LONG", 1, now=self.now + 1)
         self.assertTrue(order["ok"])
-        self.assertLessEqual(order["qty"] * order["entry"], 250.0)
-        self.assertEqual(self.engine.config["max_trade_notional_usd"], 250.0)
+        self.assertLessEqual(order["qty"] * order["entry"], 400.0)
+        self.assertEqual(self.engine.config["max_trade_notional_usd"], 400.0)
 
     def test_open_positions_share_a_portfolio_margin_cap(self):
         folder = tempfile.TemporaryDirectory()
@@ -53,11 +73,11 @@ class EngineTests(unittest.TestCase):
             total_notional = sum(notionals)
             status = engine.status(self.now + 3)
             futures = status["futures_simulation"]
-            self.assertTrue(all(n <= 250.0 for n in notionals))
-            self.assertLess(min(notionals), 250.0)
+            self.assertTrue(all(n <= 400.0 for n in notionals))
+            self.assertLessEqual(min(notionals), 400.0)
             self.assertLessEqual(futures["margin_used"], futures["margin_limit"])
-            self.assertLessEqual(total_notional, 750.0)
-            self.assertAlmostEqual(futures["notional_limit"], 1800.0, delta=2.0)
+            self.assertLessEqual(total_notional, 1200.0)
+            self.assertAlmostEqual(futures["notional_limit"], 6000.0, delta=10.0)
         finally:
             engine.db.close()
             folder.cleanup()
@@ -74,6 +94,7 @@ class EngineTests(unittest.TestCase):
         self.assertGreater(closed[0]["pnl"], 0)
 
     def test_stop_closes_short(self):
+        self.engine.config["stop_pct"] = 2.0  # isolate stop mechanics from 10x liquidation threshold
         order = self.engine.open("ETH", "SHORT", 1, now=self.now + 1)
         self.assertTrue(order["ok"])
         self.engine.update_prices({"ETH": order["stop"] * 1.005}, self.now + 2)
@@ -196,6 +217,7 @@ class EngineTests(unittest.TestCase):
         self.assertLess(status["unrealized_pnl"], 0)
 
     def test_short_position_uses_mark_price_for_stop(self):
+        self.engine.config["stop_pct"] = 2.0  # isolate stop mechanics from 10x liquidation threshold
         order = self.engine.open("SOL", "SHORT", 1, now=self.now + 1)
         self.assertTrue(order["ok"])
         # Last price remains below the stop; only the mark price crosses it.
@@ -242,7 +264,7 @@ class EngineTests(unittest.TestCase):
         self.assertTrue(order["ok"])
         pos = self.engine._positions()[0]
         liq = self.engine.liquidation_price(pos)
-        self.assertLess(liq, pos["stop"])
+        self.assertGreater(liq, pos["stop"])
         self.engine.update_prices({"SOL": liq * 0.999}, self.now + 2)
         self.assertEqual(self.engine.trades()[0]["reason"], "LIQUIDATION_APPROX")
 

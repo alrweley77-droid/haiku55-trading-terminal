@@ -11,7 +11,7 @@
 - BTC, ETH and SOL Binance USDⓈ-M perpetual futures mark prices, last prices and indicative funding metadata from public Binance endpoints.
 - Always-on public market-data poller. Automatic PAPER strategy is disabled by default and must be explicitly enabled.
 - A polished dark/pink responsive HTML dashboard with current prices, price chart, paper equity and live paper positions.
-- Mark-price-based PAPER stop/target checks, assumed fees/slippage, 3x leverage margin arithmetic and a UTC daily loss gate that includes unrealized PnL when blocking new entries.
+- Mark-price-based PAPER stop/target checks, assumed fees/slippage, 10x leverage margin arithmetic and a UTC daily loss gate that includes unrealized PnL when blocking new entries.
 - SQLite persistence for paper positions, closed trades and audit events.
 - Authenticated paper LONG, SHORT, CLOSE, PAUSE, RESUME and latching KILL.
 - Optional four-model AI council using configurable APIs: Anthropic (Haiku head), OpenAI (GPT), xAI (Grok), Google (Gemini). No model can bypass the hard-coded risk gate.
@@ -81,12 +81,12 @@ Use exact supported model IDs from provider accounts; APIs and availability chan
 | Gate | Default |
 |---|---|
 | Maximum positions | 3 |
-| Risk budget per entry | 0.5% of current cash |
-| Maximum notional per position | $250 USD |
+| Risk budget per entry | 5% of current cash (budget ceiling; actual stop loss may be lower when notional cap binds) |
+| Maximum notional per position | $400 USD |
 | Portfolio-wide margin allocation | 60% of current equity across all open positions |
-| Aggregate notional ceiling | 180% of equity at 3x leverage (theoretical $1,800 on $1,000 equity; the $250 per-position cap and three-position limit constrain actual exposure to at most $750) |
+| Aggregate notional ceiling | 600% of equity at 10x leverage (theoretical $6,000 on $1,000 equity; $400 per-position cap and three-position limit constrain exposure to at most $1,200) |
 | UTC day loss gate | 2.5% of day opening cash, including open-position unrealized PnL; blocks new entries and attempts to close remaining PAPER positions when fresh marks are available (stale/missing feed can leave positions open) |
-| Stop / take profit distance | 1% / 2% |
+| Stop / take profit distance | 10% / 2% |
 | Assumed fee/slippage per side | 4 / 2 bps |
 | Symbol cooldown after exit | 600 seconds (in-memory) |
 | Maximum stale-feed age at entry | 20 seconds |
