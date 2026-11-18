@@ -18,6 +18,23 @@ class EngineTests(unittest.TestCase):
         self.engine.db.close()
         self.folder.cleanup()
 
+    def test_new_paper_defaults_keep_cash_risk_at_half_percent_with_10x_and_2pct_stop(self):
+        folder = tempfile.TemporaryDirectory()
+        path = str(Path(folder.name) / "risk-10x.db")
+        engine = PaperEngine(path, starting_balance=1000)
+        try:
+            engine.update_prices({"BTC": 100.0}, self.now)
+            order = engine.open("BTC", "LONG", 1, now=self.now + 1)
+            self.assertTrue(order["ok"])
+            self.assertEqual(engine.config["leverage"], 10.0)
+            self.assertEqual(engine.config["stop_pct"], 2.0)
+            self.assertAlmostEqual(order["entry"] - order["stop"], order["entry"] * 0.02, places=6)
+            self.assertLessEqual(order["qty"] * order["entry"] * 0.02, 5.0)
+            self.assertAlmostEqual((order["qty"] * order["entry"]) / 10.0, 25.0, delta=0.1)
+        finally:
+            engine.db.close()
+            folder.cleanup()
+
     def test_paper_trade_enters_with_stop_and_target(self):
         order = self.engine.open("BTC", "LONG", 1, now=self.now + 1)
         self.assertTrue(order["ok"])
