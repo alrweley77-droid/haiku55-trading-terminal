@@ -86,7 +86,7 @@ Use exact supported model IDs from provider accounts; APIs and availability chan
 | Portfolio-wide margin allocation | 60% of current equity across all open positions |
 | Aggregate notional ceiling | 600% of equity at 10x leverage (theoretical $6,000 on $1,000 equity; $400 per-position cap and three-position limit constrain exposure to at most $1,200) |
 | UTC day loss gate | 2.5% of day opening cash, including open-position unrealized PnL; blocks new entries and attempts to close remaining PAPER positions when fresh marks are available (stale/missing feed can leave positions open) |
-| Stop / take profit distance | 2% / 2% |
+| Stop / take profit distance | 10% / 2% |
 | Assumed fee/slippage per side | 4 / 2 bps |
 | Symbol cooldown after exit | 600 seconds (in-memory) |
 | Maximum stale-feed age at entry | 20 seconds |
