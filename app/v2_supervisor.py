@@ -48,8 +48,6 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         broker = V2PaperBroker(args.db)
-        if args.execute_paper and args.day_open_equity is None:
-            raise ValueError("DAY_OPEN_EQUITY_REQUIRED_FOR_PAPER_EXECUTION")
         if args.day_open_equity is not None and (not 0 < args.day_open_equity < float("inf")):
             raise ValueError("INVALID_DAY_OPEN_EQUITY")
         kwargs = ({"day_open_equity": args.day_open_equity}
