@@ -48,7 +48,7 @@ class PaperBrokerTests(unittest.TestCase):
 
     def test_no_close_without_trigger(self):
         plan = self.plan()
-        self.broker.open_plan(plan, mark_price=100, observed_at=time.time())
+        self.assertTrue(self.broker.open_risk_checked(symbol="BTCUSDT", side="LONG", confidence=.8, mark_price=100, observed_at=time.time(), day_open_equity=10000, daily_pnl=0)["ok"])
         result = self.broker.process_mark("BTCUSDT", mark_price=100, observed_at=time.time())
         self.assertTrue(result["ok"])
         self.assertFalse(result["closed"])
