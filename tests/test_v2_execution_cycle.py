@@ -64,6 +64,18 @@ class ExecutionCycleTests(unittest.TestCase):
         self.assertEqual(result["executed"][0]["reason"], "PLAN_PRICE_MOVED")
         self.assertEqual(self.broker.status()["positions"], [])
 
+    def test_caller_cannot_override_persisted_daily_anchor(self):
+        with self.assertRaisesRegex(ValueError, "DAILY_ANCHOR_MISMATCH"):
+            self.cycle(execute=True, day_open_equity=9999)
+        self.assertEqual(self.broker.daily_anchor(), 10000)
+
+    def test_dry_run_does_not_persist_daily_anchor(self):
+        import sqlite3
+        self.cycle()
+        with sqlite3.connect(self.path) as db:
+            found = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='v2_daily_anchors'").fetchone()
+        self.assertIsNone(found)
+
     def test_stale_existing_position_prevents_execution(self):
         self.broker.open_risk_checked(symbol="ETHUSDT", side="LONG",
             confidence=.8, mark_price=100, observed_at=time.time(),
