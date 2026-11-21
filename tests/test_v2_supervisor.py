@@ -33,11 +33,11 @@ class SupervisorTests(unittest.TestCase):
                              cycle_fn=cycle_fn, sleep_fn=lambda seconds: None)
         self.assertEqual(len(reports), 1)
 
-    def test_cli_requires_day_open_equity_before_execution(self):
+    def test_cli_rejects_invalid_day_open_equity(self):
         with patch.dict(os.environ, {"HAIKU55_V2_PAPER_EXECUTE": "YES"}):
             with patch("sys.stderr"):
                 self.assertEqual(main(["--db", str(self.path),
-                                       "--execute-paper"]), 1)
+                                       "--execute-paper", "--day-open-equity", "-1"]), 1)
 
     def test_cycle_exception_stops_without_retry(self):
         attempts = []
