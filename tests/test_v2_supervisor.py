@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from app.v2_paper_broker import V2PaperBroker
-from app.v2_supervisor import run_cycles
+from app.v2_supervisor import run_cycles, main
 
 
 class SupervisorTests(unittest.TestCase):
@@ -32,6 +32,12 @@ class SupervisorTests(unittest.TestCase):
         reports = run_cycles(broker=self.broker, cycles=3, interval_seconds=1,
                              cycle_fn=cycle_fn, sleep_fn=lambda seconds: None)
         self.assertEqual(len(reports), 1)
+
+    def test_cli_requires_day_open_equity_before_execution(self):
+        with patch.dict(os.environ, {"HAIKU55_V2_PAPER_EXECUTE": "YES"}):
+            with patch("sys.stderr"):
+                self.assertEqual(main(["--db", str(self.path),
+                                       "--execute-paper"]), 1)
 
     def test_cycle_exception_stops_without_retry(self):
         attempts = []
