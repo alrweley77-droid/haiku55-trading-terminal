@@ -30,7 +30,7 @@ def _quote(quote_fetcher, symbol, *, now, max_age=10):
 def execute_paper_cycle(*, broker, quote_fetcher=public_quote,
                         universe_fetcher=fetch_universe,
                         candle_fetcher=fetch_closed_klines,
-                        day_open_equity=10000.0, execute=False, limit=40):
+                        day_open_equity=None, execute=False, limit=40):
     """One cycle: close triggered positions, plan, recheck, then paper-fill.
 
     In dry-run mode no DB write occurs, even if a broker is supplied.
@@ -38,8 +38,12 @@ def execute_paper_cycle(*, broker, quote_fetcher=public_quote,
     """
     if not isinstance(broker, V2PaperBroker):
         raise ValueError("PAPER_BROKER_REQUIRED")
-    if not isinstance(day_open_equity, (int, float)) or not math.isfinite(day_open_equity) or day_open_equity <= 0:
-        raise ValueError("INVALID_DAY_OPEN_EQUITY")
+    persisted_anchor = broker.daily_anchor()
+    if day_open_equity is not None and (not isinstance(day_open_equity, (int, float))
+            or not math.isfinite(day_open_equity) or day_open_equity <= 0
+            or abs(day_open_equity - persisted_anchor) > 0.000001):
+        raise ValueError("DAILY_ANCHOR_MISMATCH")
+    day_open_equity = persisted_anchor
     before = broker.status()
     existing = before["positions"]
     quote_errors = {}
