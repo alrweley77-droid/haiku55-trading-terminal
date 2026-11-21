@@ -110,7 +110,8 @@ class V2PaperBroker:
 
     def open_risk_checked(self, *, symbol, side, confidence, mark_price,
                           observed_at, day_open_equity, daily_pnl,
-                          policy=None, max_age_seconds=10, strategy="ENSEMBLE",\n                          portfolio_marks=None):
+                          policy=None, max_age_seconds=10, strategy="ENSEMBLE",
+                          portfolio_marks=None):
         """Atomically recheck PAPER-only risk, freshness and exposure at entry."""
         from app.v2_risk import RiskPolicy, size_paper_entry
         policy = RiskPolicy() if policy is None else policy
