@@ -22,7 +22,7 @@ class StrategyLibraryTests(unittest.TestCase):
         self.assertEqual(ema_trend(candles(-0.2))["side"], "SHORT")
 
     def test_donchian_volume_confirmation(self):
-        bars = candles(0.2)
+        bars = candles(1.0)
         self.assertEqual(donchian_breakout(bars)["side"], "WAIT")
         bars[-1]["volume"] = 2000
         self.assertEqual(donchian_breakout(bars)["side"], "LONG")
