@@ -22,7 +22,7 @@ class RunnerTests(unittest.TestCase):
     def test_fails_closed_on_universe_outage(self):
         def broken(limit):
             raise ConnectionError("offline")
-        with patch("app.v2_runner.fetch_universe", broken):
+        with patch("app.v2_runner.run_once", side_effect=ConnectionError("offline")):
             self.assertEqual(main(["--limit", "3"]), 1)
 
 
