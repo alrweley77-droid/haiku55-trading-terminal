@@ -24,7 +24,12 @@ def run_cycles(*, broker, cycles=1, interval_seconds=60,
         raise PermissionError("PAPER_EXECUTION_NOT_ENABLED")
     reports = []
     for index in range(cycles):
-        report = cycle_fn(broker=broker, execute=execute, **cycle_kwargs)
+        try:
+            report = cycle_fn(broker=broker, execute=execute, **cycle_kwargs)
+        except Exception as exc:
+            # Fail closed: do not continue cycles after a market/data/DB fault.
+            report = {"ok": False, "mode": "PAPER", "reason": "CYCLE_EXCEPTION",
+                      "error_type": type(exc).__name__}
         reports.append(report)
         if not report.get("ok", False):
             break
