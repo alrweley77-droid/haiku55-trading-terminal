@@ -110,7 +110,7 @@ class V2PaperBroker:
 
     def open_risk_checked(self, *, symbol, side, confidence, mark_price,
                           observed_at, day_open_equity, daily_pnl,
-                          policy=None, max_age_seconds=10, strategy="ENSEMBLE"):
+                          policy=None, max_age_seconds=10, strategy="ENSEMBLE",\n                          portfolio_marks=None):
         """Atomically recheck PAPER-only risk, freshness and exposure at entry."""
         from app.v2_risk import RiskPolicy, size_paper_entry
         policy = RiskPolicy() if policy is None else policy
@@ -127,17 +127,52 @@ class V2PaperBroker:
                 return {"ok": False, "reason": "INVALID_ACCOUNT"}
             cash = float(account[0])
             rows = db.execute("SELECT symbol,qty,entry,stop FROM v2_positions").fetchall()
-            # Fail closed until all open positions have independently verified,
-            # fresh marks. Realized cash alone is not total account equity.
-            if rows:
+            positions = []
+            unrealized = 0.0
+            used_margin = 0.0
+            if rows and not isinstance(portfolio_marks, dict):
                 return {"ok": False, "reason": "OPEN_POSITIONS_REQUIRE_FRESH_PORTFOLIO_MARKS"}
+            for open_symbol, qty, entry, stop in rows:
+                quote = portfolio_marks.get(open_symbol) if portfolio_marks else None
+                if not isinstance(quote, dict):
+                    return {"ok": False, "reason": "MISSING_PORTFOLIO_MARK"}
+                try:
+                    bid = float(quote["bid"])
+                    ask = float(quote["ask"])
+                    stamp = float(quote["observed_at"])
+                except (KeyError, TypeError, ValueError, OverflowError):
+                    return {"ok": False, "reason": "INVALID_PORTFOLIO_MARK"}
+                if (not all(math.isfinite(v) for v in (bid, ask, stamp))
+                        or bid <= 0 or ask < bid or stamp > now + 1
+                        or now - stamp > max_age_seconds):
+                    return {"ok": False, "reason": "STALE_PORTFOLIO_MARK"}
+                # Bid for long liquidation; ask for short liquidation.
+                position_side = db.execute(
+                    "SELECT side FROM v2_positions WHERE symbol=?", (open_symbol,)
+                ).fetchone()[0]
+                direction = 1 if position_side == "LONG" else -1
+                executable = bid if direction == 1 else ask
+                unrealized += (executable - entry) * qty * direction
+                notional = qty * entry
+                used_margin += notional / policy.leverage
+                positions.append({"symbol": open_symbol, "notional_usd": notional,
+                                  "stop_risk_usd": notional * (
+                                      abs(stop / entry - 1)
+                                      + 2 * (policy.fee_bps + policy.slippage_bps) / 10000)})
+            equity = cash + unrealized
+            if equity <= 0:
+                return {"ok": False, "reason": "INSUFFICIENT_EQUITY"}
+            # Reject an inconsistent caller-reported daily PnL. This prevents
+            # understating today's losses by omitting open-position losses.
+            effective_daily_pnl = min(daily_pnl, equity - day_open_equity)
             plan = size_paper_entry(
-                equity=cash, day_open_equity=day_open_equity, daily_pnl=daily_pnl,
+                equity=equity, day_open_equity=day_open_equity,
+                daily_pnl=effective_daily_pnl,
                 price=mark_price, confidence=confidence,
-                current_positions=[], side=side, symbol=symbol, policy=policy)
+                current_positions=positions, side=side, symbol=symbol, policy=policy)
             if not plan["ok"]:
                 return plan
-            if plan["estimated_margin_usd"] + plan["notional_usd"] * policy.fee_bps / 10000 > cash:
+            if used_margin + plan["estimated_margin_usd"] + plan["notional_usd"] * policy.fee_bps / 10000 > equity:
                 return {"ok": False, "reason": "INSUFFICIENT_CASH"}
             direction = 1 if side == "LONG" else -1
             entry, stop, qty = plan["entry"], plan["stop"], plan["quantity"]
