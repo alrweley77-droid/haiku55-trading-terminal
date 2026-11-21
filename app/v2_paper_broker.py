@@ -34,11 +34,16 @@ class V2PaperBroker:
         This is realized cash only; open positions still require fresh marks
         for risk checks. The anchor cannot be reset within the same UTC day.
         """
-        from datetime import datetime, timezone
+        from datetime import date, datetime, timezone
         if day is None:
             day = datetime.now(timezone.utc).date().isoformat()
         if not isinstance(day, str) or len(day) != 10:
             raise ValueError("INVALID_UTC_DAY")
+        try:
+            if date.fromisoformat(day).isoformat() != day:
+                raise ValueError("INVALID_UTC_DAY")
+        except ValueError as exc:
+            raise ValueError("INVALID_UTC_DAY") from exc
         with sqlite3.connect(self.db_path, timeout=10) as db:
             db.execute("BEGIN IMMEDIATE")
             db.execute("""CREATE TABLE IF NOT EXISTS v2_daily_anchors(
