@@ -25,6 +25,21 @@ class AtomicPaperTests(unittest.TestCase):
         self.assertEqual(result["reason"], "OPEN_POSITIONS_REQUIRE_FRESH_PORTFOLIO_MARKS")
         self.assertEqual(len(self.broker.status()["positions"]), 1)
 
+    def test_second_position_with_fresh_portfolio_marks(self):
+        self.assertTrue(self.order()["ok"])
+        quote = {"BTCUSDT": {"bid": 100, "ask": 100.02,
+                              "observed_at": time.time()}}
+        second = self.order(symbol="ETHUSDT", portfolio_marks=quote)
+        self.assertTrue(second["ok"])
+        self.assertEqual(len(self.broker.status()["positions"]), 2)
+
+    def test_stale_portfolio_mark_rejected(self):
+        self.assertTrue(self.order()["ok"])
+        quote = {"BTCUSDT": {"bid": 100, "ask": 100.02,
+                              "observed_at": time.time()-100}}
+        self.assertEqual(self.order(symbol="ETHUSDT", portfolio_marks=quote)["reason"],
+                         "STALE_PORTFOLIO_MARK")
+
     def test_daily_loss_and_stale_quote(self):
         self.assertEqual(self.order(daily_pnl=-300)["reason"], "DAILY_LOSS_LIMIT")
         self.assertEqual(self.order(observed_at=time.time()-100)["reason"],
