@@ -89,8 +89,11 @@ class V2PaperBroker:
         if (not all(_positive(x) for x in (mark_price, observed_at, max_age_seconds))
                 or observed_at > now + 1 or now - observed_at > max_age_seconds):
             return {"ok": False, "reason": "STALE_OR_INVALID_MARK"}
-        if not isinstance(strategy, str) or len(strategy) > 80:
+        if not isinstance(strategy, str) or not strategy or len(strategy) > 80:
             return {"ok": False, "reason": "INVALID_STRATEGY"}
+        if not all(isinstance(v, (int, float)) and math.isfinite(v)
+                   for v in (day_open_equity, daily_pnl)) or day_open_equity <= 0:
+            return {"ok": False, "reason": "INVALID_DAILY_ACCOUNTING"}
         with sqlite3.connect(self.db_path, timeout=10) as db:
             db.execute("BEGIN IMMEDIATE")
             account = db.execute("SELECT cash FROM v2_accounts WHERE id=1 AND mode='PAPER'").fetchone()
@@ -125,6 +128,8 @@ class V2PaperBroker:
                 executable = bid if direction == 1 else ask
                 unrealized += (executable - entry) * qty * direction
                 notional = qty * entry
+                if not all(math.isfinite(v) and v > 0 for v in (qty, entry, stop, notional)):
+                    return {"ok": False, "reason": "INVALID_STORED_POSITION"}
                 used_margin += notional / policy.leverage
                 positions.append({"symbol": open_symbol, "notional_usd": notional,
                                   "stop_risk_usd": notional * (
