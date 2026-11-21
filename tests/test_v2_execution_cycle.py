@@ -42,6 +42,19 @@ class ExecutionCycleTests(unittest.TestCase):
         self.assertEqual(result["mode"], "PAPER")
         self.assertTrue(all(row["mode"] == "PAPER" for row in result["executed"] if row["ok"]))
 
+    def test_forced_valid_plan_opens_once_and_persists(self):
+        from unittest.mock import patch
+        report = {"plans": [{"symbol": "BTCUSDT", "side": "LONG",
+                              "signal_score": .8, "strategy": "MOMENTUM",
+                              "entry": 111}], "diagnostics": {}}
+        with patch("app.v2_execution_cycle.run_once", return_value=report):
+            first = self.cycle(execute=True)
+            second = self.cycle(execute=True)
+        self.assertTrue(first["executed"][0]["ok"], first)
+        self.assertEqual(second["executed"][0]["reason"], "ALREADY_OPEN")
+        restarted = V2PaperBroker(self.broker.db_path)
+        self.assertEqual(len(restarted.status()["positions"]), 1)
+
     def test_wide_spread_prevents_entry(self):
         def wide(symbol):
             return {"bid": 100, "ask": 102, "observed_at": time.time()}
