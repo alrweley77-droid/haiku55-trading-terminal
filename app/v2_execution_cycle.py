@@ -21,6 +21,9 @@ def _quote(quote_fetcher, symbol, *, now, max_age=10):
             or bid <= 0 or ask < bid or stamp > now + 1
             or now - stamp > max_age):
         raise ValueError("STALE_QUOTE")
+    spread_bps = (ask - bid) / ((ask + bid) / 2) * 10000
+    if spread_bps > 15:
+        raise ValueError("SPREAD_TOO_WIDE")
     return {"bid": bid, "ask": ask, "observed_at": stamp}
 
 
@@ -87,6 +90,15 @@ def execute_paper_cycle(*, broker, quote_fetcher=public_quote,
             q = _quote(quote_fetcher, symbol, now=time.time())
         except (KeyError, TypeError, ValueError, OSError, TimeoutError):
             executed.append({"symbol": symbol, "ok": False, "reason": "QUOTE_UNAVAILABLE"})
+            continue
+        # Do not execute a plan if its entry reference has drifted.
+        # A newly generated signal is required after a material move.
+        planned_entry = plan.get("entry")
+        mid = (q["bid"] + q["ask"]) / 2
+        if (not isinstance(planned_entry, (int, float)) or
+                not math.isfinite(planned_entry) or planned_entry <= 0 or
+                abs(mid / planned_entry - 1) > 0.002):
+            executed.append({"symbol": symbol, "ok": False, "reason": "PLAN_PRICE_MOVED"})
             continue
         fresh_marks = {}
         failed = False
