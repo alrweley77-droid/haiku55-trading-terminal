@@ -37,42 +37,12 @@ class V2PaperBroker:
 
     def open_plan(self, plan, *, mark_price, observed_at, max_age_seconds=10,
                   target_pct=1.0, fee_bps=4.0):
-        """Apply a previously risk-approved plan; re-check price and freshness.
+        """Legacy entry adapter intentionally disabled.
 
-        A caller must re-run portfolio risk gates immediately before every entry.
-        This adapter is not a substitute for the upstream risk engine.
+        Untrusted precomputed plans must never bypass the broker's atomic
+        portfolio risk checks. Use open_risk_checked instead.
         """
-        now = time.time()
-        if not isinstance(plan, dict) or plan.get("mode") != "PAPER":
-            return {"ok": False, "reason": "INVALID_PAPER_PLAN"}
-        if not all(_positive(v) for v in (mark_price, observed_at, max_age_seconds, target_pct)):
-            return {"ok": False, "reason": "INVALID_MARK"}
-        if not isinstance(fee_bps, (int, float)) or not math.isfinite(fee_bps) or fee_bps < 0:
-            return {"ok": False, "reason": "INVALID_FEES"}
-        if observed_at > now + 1 or now - observed_at > max_age_seconds:
-            return {"ok": False, "reason": "STALE_MARK"}
-        symbol, side = plan.get("symbol"), plan.get("side")
-        entry, stop, qty = (plan.get(k) for k in ("entry", "stop", "quantity"))
-        if (not isinstance(symbol, str) or not symbol.endswith("USDT")
-                or side not in ("LONG", "SHORT") or not all(_positive(x) for x in (entry, stop, qty))):
-            return {"ok": False, "reason": "INVALID_ORDER"}
-        direction = 1 if side == "LONG" else -1
-        if (stop - entry) * direction >= 0:
-            return {"ok": False, "reason": "INVALID_STOP"}
-        if abs(mark_price / entry - 1) > 0.002:
-            return {"ok": False, "reason": "PRICE_MOVED"}
-        target = entry * (1 + direction * target_pct / 100)
-        entry_fee = qty * entry * fee_bps / 10000
-        with sqlite3.connect(self.db_path, timeout=10) as db:
-            db.execute("BEGIN IMMEDIATE")
-            if db.execute("SELECT 1 FROM v2_positions WHERE symbol=?", (symbol,)).fetchone():
-                return {"ok": False, "reason": "ALREADY_OPEN"}
-            db.execute("""INSERT INTO v2_positions
-                (symbol,side,qty,entry,stop,target,entry_fee,opened_at,strategy)
-                VALUES(?,?,?,?,?,?,?,?,?)""",
-                (symbol, side, qty, entry, stop, target, entry_fee, now, plan.get("strategy", "UNKNOWN")))
-            db.commit()
-        return {"ok": True, "mode": "PAPER", "symbol": symbol, "side": side}
+        return {"ok": False, "reason": "USE_ATOMIC_RISK_CHECKED_ENTRY"}
 
     def process_mark(self, symbol, *, mark_price, observed_at, fee_bps=4.0,
                      slippage_bps=2.0, max_age_seconds=10):
