@@ -6,6 +6,7 @@ import urllib.request
 BASE = "https://fapi.binance.com"
 EXCHANGE_INFO = BASE + "/fapi/v1/exchangeInfo"
 TICKER_24H = BASE + "/fapi/v1/ticker/24hr"
+BOOK_TICKER = BASE + "/fapi/v1/ticker/bookTicker"
 
 
 def _positive(value):
@@ -20,7 +21,7 @@ def select_universe(exchange_info, tickers, *, limit=40, min_quote_volume=20_000
                     max_spread_bps=15):
     """Return ranked symbols; fail closed on missing or malformed market data.
 
-    Binance 24hr ticker includes bidPrice and askPrice; these are only a snapshot
+    Book ticker supplies bidPrice and askPrice; these are only a snapshot
     and cannot guarantee executable spread. No real trading is performed.
     """
     if not isinstance(exchange_info, dict) or not isinstance(tickers, list):
@@ -60,4 +61,13 @@ def fetch_universe(*, limit=40, opener=None):
             with urllib.request.urlopen(request, timeout=10) as response:
                 return json.load(response)
         return opener(url)
-    return select_universe(get(EXCHANGE_INFO), get(TICKER_24H), limit=limit)
+    info = get(EXCHANGE_INFO)
+    volume_rows = get(TICKER_24H)
+    book_rows = get(BOOK_TICKER)
+    if not isinstance(volume_rows, list) or not isinstance(book_rows, list):
+        raise ValueError("Invalid Binance ticker responses")
+    books = {r["symbol"]: r for r in book_rows if isinstance(r, dict) and isinstance(r.get("symbol"), str)}
+    joined = [{**v, "bidPrice": books.get(v.get("symbol"), {}).get("bidPrice"),
+               "askPrice": books.get(v.get("symbol"), {}).get("askPrice")}
+              for v in volume_rows if isinstance(v, dict)]
+    return select_universe(info, joined, limit=limit)
