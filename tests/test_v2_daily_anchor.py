@@ -26,6 +26,15 @@ class DailyAnchorTests(unittest.TestCase):
         self.assertEqual(restarted.daily_anchor(day="2026-11-21"), 10000)
         self.assertLess(restarted.daily_anchor(day="2026-11-22"), 10000)
 
+    def test_direct_broker_cannot_override_persisted_anchor(self):
+        self.assertEqual(self.broker.daily_anchor(), 10000)
+        result = self.broker.open_risk_checked(
+            symbol="BTCUSDT", side="LONG", confidence=.8,
+            mark_price=100, observed_at=time.time(),
+            day_open_equity=11000, daily_pnl=0)
+        self.assertEqual(result["reason"], "DAILY_ANCHOR_MISMATCH")
+        self.assertEqual(self.broker.status()["positions"], [])
+
     def test_invalid_day_rejected(self):
         with self.assertRaises(ValueError):
             self.broker.daily_anchor(day="today")
