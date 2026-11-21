@@ -107,3 +107,49 @@ class V2PaperBroker:
             db.execute("DELETE FROM v2_positions WHERE symbol=?", (symbol,))
             db.commit()
         return {"ok": True, "closed": True, "reason": reason, "pnl": round(pnl, 6)}
+
+    def open_risk_checked(self, *, symbol, side, confidence, mark_price,
+                          observed_at, day_open_equity, daily_pnl,
+                          policy=None, max_age_seconds=10, strategy="ENSEMBLE"):
+        """Atomically recheck PAPER-only risk, freshness and exposure at entry."""
+        from app.v2_risk import RiskPolicy, size_paper_entry
+        policy = RiskPolicy() if policy is None else policy
+        now = time.time()
+        if (not all(_positive(x) for x in (mark_price, observed_at, max_age_seconds))
+                or observed_at > now + 1 or now - observed_at > max_age_seconds):
+            return {"ok": False, "reason": "STALE_OR_INVALID_MARK"}
+        if not isinstance(strategy, str) or len(strategy) > 80:
+            return {"ok": False, "reason": "INVALID_STRATEGY"}
+        with sqlite3.connect(self.db_path, timeout=10) as db:
+            db.execute("BEGIN IMMEDIATE")
+            account = db.execute("SELECT cash FROM v2_accounts WHERE id=1 AND mode='PAPER'").fetchone()
+            if account is None:
+                return {"ok": False, "reason": "INVALID_ACCOUNT"}
+            cash = float(account[0])
+            rows = db.execute("SELECT symbol,qty,entry,stop FROM v2_positions").fetchall()
+            # Fail closed until all open positions have independently verified,
+            # fresh marks. Realized cash alone is not total account equity.
+            if rows:
+                return {"ok": False, "reason": "OPEN_POSITIONS_REQUIRE_FRESH_PORTFOLIO_MARKS"}
+            plan = size_paper_entry(
+                equity=cash, day_open_equity=day_open_equity, daily_pnl=daily_pnl,
+                price=mark_price, confidence=confidence,
+                current_positions=[], side=side, symbol=symbol, policy=policy)
+            if not plan["ok"]:
+                return plan
+            if plan["estimated_margin_usd"] + plan["notional_usd"] * policy.fee_bps / 10000 > cash:
+                return {"ok": False, "reason": "INSUFFICIENT_CASH"}
+            direction = 1 if side == "LONG" else -1
+            entry, stop, qty = plan["entry"], plan["stop"], plan["quantity"]
+            if qty <= 0:
+                return {"ok": False, "reason": "SIZE_TOO_SMALL"}
+            target = entry * (1 + direction * 0.01)
+            fee = qty * entry * policy.fee_bps / 10000
+            db.execute("""INSERT INTO v2_positions
+                (symbol,side,qty,entry,stop,target,entry_fee,opened_at,strategy)
+                VALUES(?,?,?,?,?,?,?,?,?)""",
+                (symbol, side, qty, entry, stop, target, fee, now, strategy))
+            db.commit()
+        return {"ok": True, "mode": "PAPER", "symbol": symbol,
+                "side": side, "entry": entry, "stop": stop,
+                "quantity": qty, "strategy": strategy}
