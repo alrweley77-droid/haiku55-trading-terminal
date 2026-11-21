@@ -42,6 +42,28 @@ class ExecutionCycleTests(unittest.TestCase):
         self.assertEqual(result["mode"], "PAPER")
         self.assertTrue(all(row["mode"] == "PAPER" for row in result["executed"] if row["ok"]))
 
+    def test_wide_spread_prevents_entry(self):
+        def wide(symbol):
+            return {"bid": 100, "ask": 102, "observed_at": time.time()}
+        result = self.cycle(execute=True, quote_fetcher=wide)
+        self.assertEqual(self.broker.status()["positions"], [])
+        self.assertEqual(result["executed"], [])
+
+    def test_price_drift_blocks_precomputed_plan(self):
+        import app.v2_execution_cycle as module
+        original = module.run_once
+        def precomputed(**kwargs):
+            return {"plans": [{"symbol": "BTCUSDT", "side": "LONG",
+                "signal_score": .8, "strategy": "MOMENTUM", "entry": 80}],
+                "diagnostics": {}}
+        module.run_once = precomputed
+        try:
+            result = self.cycle(execute=True)
+        finally:
+            module.run_once = original
+        self.assertEqual(result["executed"][0]["reason"], "PLAN_PRICE_MOVED")
+        self.assertEqual(self.broker.status()["positions"], [])
+
     def test_stale_existing_position_prevents_execution(self):
         self.broker.open_risk_checked(symbol="ETHUSDT", side="LONG",
             confidence=.8, mark_price=100, observed_at=time.time(),
