@@ -22,7 +22,7 @@ class PaperBrokerTests(unittest.TestCase):
     def test_open_stop_and_persist(self):
         plan = self.plan()
         self.assertTrue(plan["ok"])
-        result = self.broker.open_plan(plan, mark_price=100, observed_at=time.time())
+        result = self.broker.open_risk_checked(symbol="BTCUSDT", side="LONG", confidence=.8, mark_price=100, observed_at=time.time(), day_open_equity=10000, daily_pnl=0)
         self.assertTrue(result["ok"])
         self.assertEqual(self.broker.status()["cash"], 10000)
         closed = self.broker.process_mark("BTCUSDT", mark_price=99, observed_at=time.time())
@@ -33,12 +33,18 @@ class PaperBrokerTests(unittest.TestCase):
 
     def test_reject_stale_mark_and_duplicate(self):
         plan = self.plan()
-        self.assertEqual(self.broker.open_plan(plan, mark_price=100,
-                         observed_at=time.time()-100)["reason"], "STALE_MARK")
-        self.assertTrue(self.broker.open_plan(plan, mark_price=100,
-                        observed_at=time.time())["ok"])
-        self.assertEqual(self.broker.open_plan(plan, mark_price=100,
-                         observed_at=time.time())["reason"], "ALREADY_OPEN")
+        self.assertEqual(self.broker.open_risk_checked(symbol="BTCUSDT", side="LONG", confidence=.8, mark_price=100,
+                         observed_at=time.time()-100, day_open_equity=10000, daily_pnl=0)["reason"], "STALE_OR_INVALID_MARK")
+        self.assertTrue(self.broker.open_risk_checked(symbol="BTCUSDT", side="LONG", confidence=.8, mark_price=100,
+                        observed_at=time.time(), day_open_equity=10000, daily_pnl=0)["ok"])
+        self.assertEqual(self.broker.open_risk_checked(symbol="BTCUSDT", side="LONG", confidence=.8, mark_price=100,
+                         observed_at=time.time(), day_open_equity=10000, daily_pnl=0,
+                         portfolio_marks={"BTCUSDT": {"bid": 100, "ask": 100.01, "observed_at": time.time()}})["reason"], "ALREADY_OPEN")
+
+    def test_legacy_adapter_cannot_bypass_risk(self):
+        result = self.broker.open_plan(self.plan(), mark_price=100, observed_at=time.time())
+        self.assertEqual(result["reason"], "USE_ATOMIC_RISK_CHECKED_ENTRY")
+        self.assertEqual(self.broker.status()["positions"], [])
 
     def test_no_close_without_trigger(self):
         plan = self.plan()
