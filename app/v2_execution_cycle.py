@@ -33,7 +33,7 @@ def execute_paper_cycle(*, broker, quote_fetcher=public_quote,
     In dry-run mode no DB write occurs, even if a broker is supplied.
     Execute mode requires an isolated V2PaperBroker and fresh quote per fill.
     """
-    if execute and not isinstance(broker, V2PaperBroker):
+    if not isinstance(broker, V2PaperBroker):
         raise ValueError("PAPER_BROKER_REQUIRED")
     if not isinstance(day_open_equity, (int, float)) or not math.isfinite(day_open_equity) or day_open_equity <= 0:
         raise ValueError("INVALID_DAY_OPEN_EQUITY")
