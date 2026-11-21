@@ -72,7 +72,7 @@ class ExecutionCycleTests(unittest.TestCase):
     def test_dry_run_does_not_persist_daily_anchor(self):
         import sqlite3
         self.cycle()
-        with sqlite3.connect(self.path) as db:
+        with sqlite3.connect(self.broker.db_path) as db:
             found = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='v2_daily_anchors'").fetchone()
         self.assertIsNone(found)
 
