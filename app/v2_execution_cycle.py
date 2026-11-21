@@ -38,7 +38,7 @@ def execute_paper_cycle(*, broker, quote_fetcher=public_quote,
     """
     if not isinstance(broker, V2PaperBroker):
         raise ValueError("PAPER_BROKER_REQUIRED")
-    persisted_anchor = broker.daily_anchor()
+    persisted_anchor = broker.daily_anchor() if execute else broker.status()["cash"]
     if day_open_equity is not None and (not isinstance(day_open_equity, (int, float))
             or not math.isfinite(day_open_equity) or day_open_equity <= 0
             or abs(day_open_equity - persisted_anchor) > 0.000001):
