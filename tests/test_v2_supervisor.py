@@ -33,6 +33,17 @@ class SupervisorTests(unittest.TestCase):
                              cycle_fn=cycle_fn, sleep_fn=lambda seconds: None)
         self.assertEqual(len(reports), 1)
 
+    def test_cycle_exception_stops_without_retry(self):
+        attempts = []
+        def broken(*, broker, execute):
+            attempts.append(1)
+            raise ConnectionError("market offline")
+        reports = run_cycles(broker=self.broker, cycles=10, interval_seconds=1,
+                             cycle_fn=broken, sleep_fn=lambda _: None)
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(reports[0]["reason"], "CYCLE_EXCEPTION")
+        self.assertEqual(reports[0]["error_type"], "ConnectionError")
+
     def test_paper_execution_requires_explicit_environment_gate(self):
         with patch.dict(os.environ, {"HAIKU55_V2_PAPER_EXECUTE": ""}):
             with self.assertRaises(PermissionError):
