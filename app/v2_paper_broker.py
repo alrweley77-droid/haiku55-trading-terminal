@@ -131,6 +131,18 @@ class V2PaperBroker:
             if account is None:
                 return {"ok": False, "reason": "INVALID_ACCOUNT"}
             cash = float(account[0])
+            # The persisted UTC anchor is authoritative even for direct callers.
+            from datetime import datetime, timezone
+            today = datetime.now(timezone.utc).date().isoformat()
+            anchor_table = db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='v2_daily_anchors'"
+            ).fetchone()
+            if anchor_table:
+                anchor = db.execute(
+                    "SELECT cash_anchor FROM v2_daily_anchors WHERE utc_day=?", (today,)
+                ).fetchone()
+                if anchor and abs(float(anchor[0]) - day_open_equity) > 0.000001:
+                    return {"ok": False, "reason": "DAILY_ANCHOR_MISMATCH"}
             rows = db.execute("SELECT symbol,qty,entry,stop FROM v2_positions").fetchall()
             positions = []
             unrealized = 0.0
