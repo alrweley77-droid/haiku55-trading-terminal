@@ -5,6 +5,7 @@ Scores are heuristic priorities, not calibrated probabilities. No real orders.
 import math
 from app.v2_signals import rank_candidates, score_candles
 from app.v2_strategy_library import evaluate_strategies
+from app.v2_price_action import evaluate_price_action
 
 
 def select_opportunities(markets, *, limit=5, min_score=0.65,
@@ -38,6 +39,8 @@ def select_opportunities(markets, *, limit=5, min_score=0.65,
             continue
         candles = data.get("candles")
         signals = evaluate_strategies(candles, spread_bps=spread)
+        if spread <= 15.0:
+            signals.extend(evaluate_price_action(candles))
         signals.append(score_candles(candles, spread_bps=spread))
         qualifying = [s for s in signals if s.get("side") in ("LONG", "SHORT")
                       and isinstance(s.get("score"), (int, float)) and s["score"] >= min_score]
