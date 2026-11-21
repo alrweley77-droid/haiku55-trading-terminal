@@ -28,6 +28,32 @@ class V2PaperBroker:
                 pnl REAL NOT NULL, reason TEXT NOT NULL, closed_at REAL NOT NULL)""")
             db.commit()
 
+    def daily_anchor(self, *, day=None):
+        """Persist UTC daily cash anchor, idempotent across process restarts.
+
+        This is realized cash only; open positions still require fresh marks
+        for risk checks. The anchor cannot be reset within the same UTC day.
+        """
+        from datetime import datetime, timezone
+        if day is None:
+            day = datetime.now(timezone.utc).date().isoformat()
+        if not isinstance(day, str) or len(day) != 10:
+            raise ValueError("INVALID_UTC_DAY")
+        with sqlite3.connect(self.db_path, timeout=10) as db:
+            db.execute("BEGIN IMMEDIATE")
+            db.execute("""CREATE TABLE IF NOT EXISTS v2_daily_anchors(
+                utc_day TEXT PRIMARY KEY, cash_anchor REAL NOT NULL
+                CHECK(cash_anchor > 0))""")
+            row = db.execute("SELECT cash FROM v2_accounts WHERE id=1 AND mode='PAPER'").fetchone()
+            if row is None or not _positive(row[0]):
+                raise ValueError("INVALID_PAPER_ACCOUNT")
+            db.execute("INSERT OR IGNORE INTO v2_daily_anchors(utc_day,cash_anchor) VALUES(?,?)",
+                       (day, row[0]))
+            anchor = db.execute("SELECT cash_anchor FROM v2_daily_anchors WHERE utc_day=?",
+                                (day,)).fetchone()[0]
+            db.commit()
+        return float(anchor)
+
     def status(self):
         with sqlite3.connect(self.db_path) as db:
             cash = db.execute("SELECT cash FROM v2_accounts WHERE id=1").fetchone()[0]
