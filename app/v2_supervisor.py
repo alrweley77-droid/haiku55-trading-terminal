@@ -41,15 +41,22 @@ def run_cycles(*, broker, cycles=1, interval_seconds=60,
 def main(argv=None):
     parser = argparse.ArgumentParser(description="HAIKU55 V2 independent PAPER supervisor")
     parser.add_argument("--db", default="haiku55-v2.db")
+    parser.add_argument("--day-open-equity", type=float, default=None)
     parser.add_argument("--cycles", type=int, default=1)
     parser.add_argument("--interval", type=float, default=60)
     parser.add_argument("--execute-paper", action="store_true")
     args = parser.parse_args(argv)
     try:
         broker = V2PaperBroker(args.db)
+        if args.execute_paper and args.day_open_equity is None:
+            raise ValueError("DAY_OPEN_EQUITY_REQUIRED_FOR_PAPER_EXECUTION")
+        if args.day_open_equity is not None and (not 0 < args.day_open_equity < float("inf")):
+            raise ValueError("INVALID_DAY_OPEN_EQUITY")
+        kwargs = ({"day_open_equity": args.day_open_equity}
+                  if args.day_open_equity is not None else {})
         reports = run_cycles(broker=broker, cycles=args.cycles,
                              interval_seconds=args.interval,
-                             execute=args.execute_paper)
+                             execute=args.execute_paper, **kwargs)
     except (ValueError, PermissionError, OSError) as exc:
         print(json.dumps({"ok": False, "mode": "PAPER",
                           "error": str(exc)}), file=sys.stderr)
